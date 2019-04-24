@@ -5,7 +5,7 @@
 */
 const char* env_init()
 {    
-	std::string s = "SwimmerEnvironment(C/C++) by Leon Zheng";
+	std::string s = "SwimmerEnvironment(C++) by Leon Zheng";
 	const char *task_spec_string = s.c_str();
 
 	/* Allocate the observation variable */
@@ -52,6 +52,20 @@ const reward_observation_terminal_t *env_step(const action_t *this_action)
 void env_cleanup()
 {
 	clearRLStruct(&this_observation);
+}
+
+const char* env_message(const char * message)
+{
+	/*	Message Description
+ 	 * 'set-default-start-state'
+	 * Action: Set flag to do default starting states (the default)
+	 */
+	if(strcmp(message,"set-default-start-state")==0){
+        default_start_state=1;
+        return "Message understood.  Using default start state.";
+    }
+
+   	return "SwimmerEnvironment(C++) does not respond to that message.";
 }
 
 /*

@@ -5,6 +5,8 @@
 
 #include <iostream>
 #include <cmath>
+#include <stdio.h>
+#include <string.h>
 #include <assert.h> /*assert*/
 // env_ function prototypes types 
 #include <rlglue/Environment_common.h>	  
@@ -17,7 +19,7 @@ static observation_t this_observation;
 static reward_observation_terminal_t this_reward_observation;
 
 /* Used if a message is sent to the environment to use default start states */
-static int default_start_state=0;
+static int default_start_state = 1;
 
 // Parameters
 // TODO put the parameters has an input of the file and don't recompile at each time
@@ -29,6 +31,7 @@ const char* env_init();
 const observation_t *env_start();
 const reward_observation_terminal_t *env_step(const action_t *this_action);
 void env_cleanup();
+const char* env_message(const char * message);
 
 void updateState(observation_t& state, const double* torques);
 double calculate_reward(const observation_t& state);
