@@ -11,8 +11,25 @@
 // helpful functions for allocating structs and cleaning them up 
 #include <rlglue/utils/C/RLStruct_util.h>   
 
+
+// Global variables for RLGlue methods
+static observation_t this_observation;
+static reward_observation_terminal_t this_reward_observation;
+
+/* Used if a message is sent to the environment to use default start states */
+static int default_start_state=0;
+
+// Parameters
+// TODO put the parameters has an input of the file and don't recompile at each time
+static int n_seg = 3;
+static double max_u = 1;
+
+// Methods
+const char* env_init();
 const observation_t *env_start();
 const reward_observation_terminal_t *env_step(const action_t *this_action);
+void env_cleanup();
+
 void updateState(observation_t& state, const double* torques);
 double calculate_reward(const observation_t& state);
 int check_terminal(const observation_t& state);
