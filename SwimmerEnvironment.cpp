@@ -9,7 +9,7 @@ const char* env_init()
 	const char *task_spec_string = s.c_str();
 
 	/* Allocate the observation variable */
-	const int numVar = 2*(2+(n_seg-1)); // A_0 is the head of the swimmer, 2D point; and there are n_seg-1 angles. We want also the derivatives.
+	const int numVar = 2*(2+n_seg); // A_0 is the head of the swimmer, 2D point; and there are n_seg angles. We want also the derivatives.
 	allocateRLStruct(&this_observation,0,numVar,0);
 
 	/* Setup the reward_observation variable */
