@@ -168,15 +168,24 @@ void computeAccelerations(const double* torque, const Vector2d p_head, const Vec
 	a_head = Vector2d(X(3*n_seg+2), X(3*n_seg+3)) - l_i/2*p_i[0];
 }
 
+void semiImplicitEuler(double h, Vector2d& p_head, double* p_angle, Vector2d& v_head, double* v_angle, const Vector2d& a_head, const double* a_angle)
+{
+	v_head = v_head + h*a_head;
+	p_head = p_head + h*v_head;
+	for(int i=0; i<n_seg; i++){
+		v_angle[i] = v_angle[i] + h*a_angle[i];
+		p_angle[i] = p_angle[i] + h*v_angle[i];
+	}
+}
 
 void updateState(observation_t& state, const action_t* action)
 {
 	// Extract the informations
 	const double* torque = action->doubleArray;
-	const Vector2d p_head(state.doubleArray[0], state.doubleArray[1]);
-	const Vector2d v_head(state.doubleArray[2], state.doubleArray[3]);
-	const double* p_angle = &state.doubleArray[4];
-	const double* v_angle = &state.doubleArray[4 + n_seg];
+	Vector2d p_head(state.doubleArray[0], state.doubleArray[1]);
+	Vector2d v_head(state.doubleArray[2], state.doubleArray[3]);
+	double* p_angle = &state.doubleArray[4];
+	double* v_angle = &state.doubleArray[4 + n_seg];
 
 	// Compute accelerations
 	double a_angle[n_seg];
@@ -184,7 +193,16 @@ void updateState(observation_t& state, const action_t* action)
 	computeAccelerations(torque, p_head, v_head, p_angle, v_angle, a_angle, a_head);
 
 	// Semi-implicit Euler
-	
+	//TODO ISSUE what is the time interval??
+	const double h = h_global;
+	semiImplicitEuler(h, p_head, p_angle, v_head, v_angle, a_head, a_angle);
+
+	// Return new state
+	state.doubleArray[0] = p_head(0);
+	state.doubleArray[1] = p_head(1);
+	state.doubleArray[2] = v_head(0);
+	state.doubleArray[3] = v_head(1);
+	// For the angles since we used pointers it is already updated
 }
 
 

@@ -30,6 +30,7 @@ static double max_u = 5;
 static double l_i = 1;
 static double k = 10;
 static double m_i = 1;
+static double h_global = 0.01;
 
 // Methods
 const char* env_init();
@@ -40,6 +41,7 @@ const char* env_message(const char * message);
 
 void computeAccelerations(const double* torque, const Vector2d p_head, const Vector2d v_head, const double* p_angle, const double* v_angle, 
 							double* a_angle, Vector2d& a_head);
+void semiImplicitEuler(double h, Vector2d& p_head, double* p_angle, Vector2d& v_head, double* v_angle, const Vector2d& a_head, const double* a_angle);
 void updateState(observation_t& state, const action_t* action);
 double calculate_reward(const observation_t& state);
 int check_terminal(const observation_t& state);
