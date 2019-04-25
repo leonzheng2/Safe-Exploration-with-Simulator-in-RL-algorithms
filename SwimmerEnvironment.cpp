@@ -109,8 +109,8 @@ void computeAccelerations(const double* torque, const Vector2d p_head, const Vec
 	}
 
 	// Matrix and vector of the linear system
-	MatrixXd A = MatrixXd::Zero(5*n_seg+1, 5*n_seg+1);
-	VectorXd B = VectorXd::Zero(5*n_seg+1);
+	MatrixXd A = MatrixXd::Zero(5*n_seg+2, 5*n_seg+2);
+	VectorXd B = VectorXd::Zero(5*n_seg+2);
 
 	// Dynamic equations: lines 0 to n_seg-1
 	for(int i=1; i<n_seg+1; i++){ // angles..
@@ -137,7 +137,7 @@ void computeAccelerations(const double* torque, const Vector2d p_head, const Vec
 		// Equation on y direction
 		A(n_seg+2 + 2*(i-1) + 1, n_seg + 2*(i-1) + 1) = 1; //f_(i-1,y)
 		A(n_seg+2 + 2*(i-1) + 1, n_seg + 2*i + 1) = -1; //f_(i,y)
-		A(n_seg+2 + 2*(i-1) + 1, 3*n_seg + 2*i + 1) = m_i; //G.._(i,y)
+		A(n_seg+2 + 2*(i-1) + 1, 3*n_seg + 2*i + 1) = m_i; //G.._(i,y) //TODO DEBUG
 		B(n_seg+2 + 2*(i-1) + 1) = F_friction[i-1](1);
 	}
 	// lines 3*n_seg+2 to 3*n_seg+3
