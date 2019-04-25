@@ -103,7 +103,7 @@ void computeAccelerations(const double* torque, const Vector2d p_head, const Vec
 	// Compute friction forces and torques
 	Vector2d F_friction[n_seg];
 	double M_friction[n_seg];
-	for(int i=0; i++; i<n_seg){
+	for(int i=0; i<n_seg; i++){
 		F_friction[i] = -k*l_i*v_center[i].dot(n_i[i])*n_i[i];
 		M_friction[i] = -k*v_angle[i]*pow(l_i,3)/12;
 	}
@@ -141,8 +141,8 @@ void computeAccelerations(const double* torque, const Vector2d p_head, const Vec
 		B(n_seg+2 + 2*(i-1) + 1) = F_friction[i-1](1);
 	}
 	// lines 3*n_seg+2 to 3*n_seg+3
-	A(3*n_seg+1, 3*n_seg) = 1;
-	A(3*n_seg+2, 3*n_seg+1) = 1;
+	A(3*n_seg+2, 3*n_seg) = 1;
+	A(3*n_seg+3, 3*n_seg+1) = 1;
 
 	// Equations on G.._i: lines 3*n_seg+4 to 5*n_seg+1
 	for(int i=1; i<n_seg; i++){

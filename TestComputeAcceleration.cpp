@@ -12,7 +12,10 @@ int main(int argc, char const *argv[])
 
 	double a_angle[n_seg];
 	Vector2d a_head;
+
+	std::cout << "Computing accelerations..." << std::endl;
 	computeAccelerations(torque, p_head, v_head, p_angle, v_angle, a_angle, a_head);
+	std::cout << "Done" << std::endl;
 
 	std::cout << "Head acceleration: (" << a_head(0) << ";" << a_head(1) << ")" << std::endl;
 	std::cout << "Angles acceleration: " << std::endl;
