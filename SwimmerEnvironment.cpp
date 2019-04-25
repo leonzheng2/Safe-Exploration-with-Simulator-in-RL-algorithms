@@ -208,7 +208,21 @@ void updateState(observation_t& state, const action_t* action)
 
 double calculate_reward(const observation_t& state)
 {
-	return 0;
+	const Vector2d v_head(state.doubleArray[2], state.doubleArray[3]);
+	const double* p_angle = &state.doubleArray[4];
+	const double* v_angle = &state.doubleArray[4 + n_seg];
+	Vector2d v_points[n_seg+1];
+	v_points[0] = v_head;
+	for(int i=1; i<n_seg+1; i++){
+		v_points[i] = v_points[i-1] + l_i*v_angle[i-1]*Vector2d(-sin(p_angle[i-1]), cos(p_angle[i-1]));
+	}
+
+	Vector2d v_barycenter(0., 0.);
+	for(int i=0; i<n_seg; i++){
+		v_barycenter += 1./n_seg * (v_points[i]+v_points[i+1])/2;
+	}
+
+	return v_barycenter.dot(direction);
 }
 
 int check_terminal(const observation_t& state)

@@ -25,6 +25,7 @@ static int default_start_state = 1;
 
 // Parameters
 // TODO put the parameters has an input of the file and don't recompile at each time
+static Vector2d direction(1.0, 0);
 static int n_seg = 3;
 static double max_u = 5;
 static double l_i = 1;
