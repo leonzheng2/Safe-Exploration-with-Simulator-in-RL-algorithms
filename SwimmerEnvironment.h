@@ -26,7 +26,7 @@ static int default_start_state = 1;
 // Parameters
 // TODO put the parameters has an input of the file and don't recompile at each time
 static Vector2d direction(1.0, 0);
-static int n_seg = 3;
+static int n_seg = 4;
 static double max_u = 5;
 static double l_i = 1;
 static double k = 10;
@@ -46,4 +46,3 @@ void semiImplicitEuler(double h, Vector2d& p_head, double* p_angle, Vector2d& v_
 void updateState(observation_t& state, const action_t* action);
 double calculate_reward(const observation_t& state);
 int check_terminal(const observation_t& state);
-

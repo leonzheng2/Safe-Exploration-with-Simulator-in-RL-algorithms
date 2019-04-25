@@ -229,13 +229,3 @@ int check_terminal(const observation_t& state)
 {
 	return 0;
 }
-
-/*
-	Main for checking compiling
-*/
-
-int main(int argc, char const *argv[])
-{
-	std::cout << "Hello world!" << std::endl;
-	return 0;
-}
