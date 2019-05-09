@@ -14,15 +14,9 @@ const char* env_init()
 	this_reward_observation.reward=0;
 	this_reward_observation.terminal=0;
 
-	std::string s = "VERSION RL-Glue-3.0 PROBLEMTYPE continuing 
-	DISCOUNTFACTOR 0.9 
-	OBSERVATIONS DOUBLES (" + std::to_string(2*(2+n_seg)) + " UNSPEC UNSPEC)* 
-	ACTIONS DOUBLES (" + std::to_string(n_seg-1) + " " + std::to_string(-max_u) + " " std::to_string(max_u) + "* 
-	REWARDS (UNSPEC UNSPEC) 
-	EXTRA SwimmerEnvironment(C++) by Leon Zheng";
-	const char *task_spec_string = s.c_str();
-
-   return task_spec_string;
+	static std::string task_spec_string = "VERSION RL-Glue-3.0 PROBLEMTYPE continuing DISCOUNTFACTOR 0.9 OBSERVATIONS DOUBLES (" + std::to_string(2*(2+n_seg)) + " UNSPEC UNSPEC)* ACTIONS DOUBLES (" + std::to_string(n_seg-1) + " " + std::to_string(-max_u) + " " + std::to_string(max_u) + ")* REWARDS (UNSPEC UNSPEC) EXTRA SwimmerEnvironment(C++) by Leon Zheng";
+	
+	return task_spec_string.c_str();
 }
 
 const observation_t *env_start()
@@ -70,7 +64,7 @@ const char* env_message(const char * message)
         return "Message understood.  Using default start state.";
     }
     else if(strcmp(message, "what is your name?")==0){
-    	return "my name is swimmer_environment, C++ edition!"
+    	return "my name is swimmer_environment, C++ edition!";
     }
 
    	return "SwimmerEnvironment(C++) does not respond to that message.";

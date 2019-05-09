@@ -5,7 +5,7 @@
 import numpy as np
 import sys
 import copy
-from statistics import 	stdev
+from statistics import stdev
 
 from rlglue.agent.Agent import Agent
 from rlglue.agent import AgentLoader as AgentLoader
@@ -54,6 +54,8 @@ class SwimmerAgent(Agent):
 	"""
 	
 	def agent_init(self,taskSpec):
+
+		print("Reading taskSpec:" + taskSpec.decode())
 
 		# TODO Parse taskSpec
 		TaskSpec = TaskSpecVRLGLUE3.TaskSpecParser(taskSpec)

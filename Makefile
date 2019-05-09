@@ -1,13 +1,7 @@
-LDFLAGS :=  -lm -lrlutils -lrlenvironment -lrlgluenetdev
-CFLAGS :=   -Wall -pedantic
-
-all: SwimmerEnvironment
-
-SwimmerEnvironment: SwimmerEnvironment.o 
-	$(CXX)   SwimmerEnvironment.o $(LDFLAGS) -o SwimmerEnvironment      
-
-SwimmerEnvironment.o: SwimmerEnvironment.cpp
-	$(CXX)  $(CFLAGS) -c SwimmerEnvironment.cpp -o SwimmerEnvironment.o 
+all: 	
+	make -f Makefile.environment 
+	make -f Makefile.experiment
 
 clean:
-	rm -rf SwimmerEnvironment SwimmerEnvironment.exe *.o
+	make -f Makefile.environment clean
+	make -f Makefile.experiment clean

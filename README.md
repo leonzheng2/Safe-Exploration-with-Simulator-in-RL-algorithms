@@ -1,4 +1,4 @@
-For Python Codec: the one in rl-glue community website is written in Python2. Please find a version ported in Python3, like https://github.com/okkhoy/rlglue-python3-codec
+For Python Codec: the one in rl-glue community website is written in Python2. Please find a version ported in Python3, like https://github.com/steckdenis/rlglue-py3
 
 Some little modifications are required in the code:
 
