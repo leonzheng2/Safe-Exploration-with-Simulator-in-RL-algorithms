@@ -13,12 +13,16 @@ from rlglue.types import Action
 from rlglue.types import Observation
 from rlglue.utils import TaskSpecVRLGLUE3
 
-# Parameters
+# Parameters from environment
 n_seg = 3
+max_u = 5.
+
+# Parameters of the ARS algorithm
 N = 10
 H = 1000
 b = N
 alpha = 0.1
+nu = 0.05
 
 ### TODO: V2 version
 
@@ -47,6 +51,9 @@ class SwimmerAgent(Agent):
 
 	# Counter which increments only after one agent step
 	count = 0
+
+	# Progress of agentPolicy
+	saveAgentPolicy = []
 
 
 	"""
@@ -82,46 +89,43 @@ class SwimmerAgent(Agent):
 		self.iterationObs = Observation()
 		self.states = []
 		self.agentPolicy = np.zeros((n_seg-1, 2*(2+n_seg)))
+		self.saveAgentPolicy.append(copy.deepcopy(self.agentPolicy))
 		self.deltas = [np.zeros((n_seg-1, 2*(2+n_seg))) for i in range(N)]
 		self.rewards = [0. for i in range(2*N)]
 		self.count = 0
 
-		print("End of agent_init")
-
 	def agent_start(self,observation):
-		print("Starting agent...")
+		assert len(observation.doubleArray) == 2*(2+n_seg)
 
-		assert observation.numDoubles == 2*(2+n_seg)
 		self.sample_deltas() # Choose the deltas directions
-		iterationObs = copy.deepcopy(observation) # Fix the observation at the begining of the iteration
+		self.iterationObs = copy.deepcopy(observation) # Fix the observation at the begining of the iteration
 		for i in range(len(self.rewards)):
 			self.rewards[i] = 0. # Reset rewards
 
 		thisPolicy = self.fix_policy() # Select the policy for this agent step
-		thisAction = self.select_action(thisPolicy, thisObservation) # Select action given the policy and the observation
+
+		thisAction = self.select_action(thisPolicy, observation) # Select action given the policy and the observation
 		self.states.append(observation)
 		self.count += 1
-
-		print(f"Size of action: {thisAction.numDoubles}")
 
 		return thisAction
 	
 	def agent_step(self,reward, observation):
-		assert observation.numDoubles == 2*(2+n_seg)
+		assert len(observation.doubleArray) == 2*(2+n_seg)
 		thisObservation = copy.deepcopy(observation) # In general case, the observation used to select the action is the last observation given by the environment
 
 		# New rollout
 		if self.count%H == 0:
-			idx = self.count//H - 1 
+			idx = (self.count//H - 1)%(2*N) 
 			self.rewards[idx] = reward # Update reward. The current reward is the one received at the end of the previous rollout.
-			thisObservation = copy.deepcopy(iterationObs) # At the begining of a new rollout, we start again with the initial observation.
+			thisObservation = copy.deepcopy(self.iterationObs) # At the begining of a new rollout, we start again with the initial observation.
 
 		# New iteration
 		if self.count%(2*N*H) == 0:
 			order = self.order_directions()
 			self.update_policy(order) # Use the previous rewards to update the policy. Only after the first iteration.
 			self.sample_deltas() # Choose the deltas directions
-			iterationObs = copy.deepcopy(observation) # Fix the observation at the begining of the iteration
+			self.iterationObs = copy.deepcopy(observation) # Fix the observation at the begining of the iteration
 			for i in range(len(self.rewards)):
 				self.rewards[i] = 0. # Reset rewards
 		
@@ -129,6 +133,8 @@ class SwimmerAgent(Agent):
 		thisAction = self.select_action(thisPolicy, thisObservation) # Select action given the policy and the observation
 		self.states.append(observation)
 		self.count += 1
+
+		print(f"Count: {self.count}")
 
 		return thisAction
 	
@@ -168,9 +174,18 @@ class SwimmerAgent(Agent):
 			Action selection based on linear policies
 		"""
 		state_vector = np.array(state.doubleArray)
-		action_vector = np.matmul(policy*state_vector)
+		action_vector = np.matmul(policy, state_vector)
+
+		#Constraint
+		for i in range(len(action_vector)):
+			if action_vector[i] > max_u:
+				action_vector[i] = max_u
+			elif action_vector[i] < -max_u:
+				action_vector[i] = -max_u
+
 		action_selected = Action(numDoubles=action_vector.size)
 		action_selected.doubleArray = action_vector.tolist()
+
 		return action_selected
 
 	def sample_deltas(self):
@@ -178,7 +193,7 @@ class SwimmerAgent(Agent):
 			Sample the N directions for rollouts with iid standard normal entries
 		"""
 		for i in range(len(self.deltas)):
-			deltas[i] = np.random.rand(self.agentPolicy.shape[0], self.agentPolicy.shape[1])
+			self.deltas[i] = np.random.rand(self.agentPolicy.shape[0], self.agentPolicy.shape[1])
 
 	def order_directions(self):
 		"""
@@ -202,6 +217,7 @@ class SwimmerAgent(Agent):
 		grad /= (b*sigma_r)
 
 		self.agentPolicy += alpha * grad
+		self.saveAgentPolicy.append(copy.deepcopy(self.agentPolicy))
 
 if __name__=="__main__":
 	AgentLoader.loadAgent(SwimmerAgent())
