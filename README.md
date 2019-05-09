@@ -16,3 +16,7 @@ instead of StringIO.StringIO('')
 from rlglue.agent.ClientAgent import ClientAgent
 
 instead of from ClientAgent import Client Agent
+
+taskspec.decode()
+
+instead of taskspec

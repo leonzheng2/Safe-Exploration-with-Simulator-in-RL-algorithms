@@ -55,7 +55,7 @@ class SwimmerAgent(Agent):
 	
 	def agent_init(self,taskSpec):
 
-		print("Reading taskSpec:" + taskSpec.decode())
+		print("Reading taskSpec: " + taskSpec.decode())
 
 		# TODO Parse taskSpec
 		TaskSpec = TaskSpecVRLGLUE3.TaskSpecParser(taskSpec)
@@ -85,8 +85,13 @@ class SwimmerAgent(Agent):
 		self.deltas = [np.zeros((n_seg-1, 2*(2+n_seg))) for i in range(N)]
 		self.rewards = [0. for i in range(2*N)]
 		self.count = 0
-		
+
+		print("End of agent_init")
+
 	def agent_start(self,observation):
+		print("Starting agent...")
+
+		assert observation.numDoubles == 2*(2+n_seg)
 		self.sample_deltas() # Choose the deltas directions
 		iterationObs = copy.deepcopy(observation) # Fix the observation at the begining of the iteration
 		for i in range(len(self.rewards)):
@@ -97,9 +102,12 @@ class SwimmerAgent(Agent):
 		self.states.append(observation)
 		self.count += 1
 
+		print(f"Size of action: {thisAction.numDoubles}")
+
 		return thisAction
 	
 	def agent_step(self,reward, observation):
+		assert observation.numDoubles == 2*(2+n_seg)
 		thisObservation = copy.deepcopy(observation) # In general case, the observation used to select the action is the last observation given by the environment
 
 		# New rollout

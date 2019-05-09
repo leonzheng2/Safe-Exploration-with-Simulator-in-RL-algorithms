@@ -21,6 +21,7 @@ const char* env_init()
 
 const observation_t *env_start()
 { 
+	std::cout << "env_start called..." << std::endl;
 	if(default_start_state){
 		// Default position: everything is at 0
 		for(size_t i=0; i<this_observation.numDoubles; i++){
@@ -35,6 +36,7 @@ const observation_t *env_start()
 const reward_observation_terminal_t *env_step(const action_t *this_action)
 {
 	/* Make sure the action is valid */
+	std::cout << "Size of the action: " << this_action->numDoubles << std::endl;
 	assert(this_action->numDoubles == n_seg-1);
 	for(size_t i=0; i<n_seg-1; i++){
 		assert(abs(this_action->doubleArray[i]) < max_u);
