@@ -64,6 +64,9 @@ const char* env_message(const char * message)
         default_start_state=1;
         return "Message understood.  Using default start state.";
     }
+    else if(strcmp(message, "what is your name?")==0){
+    	return "my name is swimmer_environment, C++ edition!"
+    }
 
    	return "SwimmerEnvironment(C++) does not respond to that message.";
 }

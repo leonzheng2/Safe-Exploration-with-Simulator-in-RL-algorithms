@@ -60,10 +60,19 @@ class SwimmerAgent(Agent):
 		self.count = 0
 		
 	def agent_start(self,observation):
-		raise NotImplementedError
+		self.sample_deltas() # Choose the deltas directions
+		iterationObs = copy.deepcopy(observation) # Fix the observation at the begining of the iteration
+		for i in range(len(self.rewards)):
+			self.rewards[i] = 0. # Reset rewards
+
+		thisPolicy = self.fix_policy() # Select the policy for this agent step
+		thisAction = self.select_action(thisPolicy, thisObservation) # Select action given the policy and the observation
+		self.states.append(observation)
+		self.count += 1
+
+		return thisAction
 	
 	def agent_step(self,reward, observation):
-		thisPolicy = self.fix_policy() # Select the policy for this agent step
 		thisObservation = copy.deepcopy(observation) # In general case, the observation used to select the action is the last observation given by the environment
 
 		# New rollout
@@ -74,14 +83,14 @@ class SwimmerAgent(Agent):
 
 		# New iteration
 		if self.count%(2*N*H) == 0:
-			if self.count>0:
-				order = self.order_directions()
-				self.update_policy(order) # Use the previous rewards to update the policy. Only after the first iteration.
+			order = self.order_directions()
+			self.update_policy(order) # Use the previous rewards to update the policy. Only after the first iteration.
 			self.sample_deltas() # Choose the deltas directions
 			iterationObs = copy.deepcopy(observation) # Fix the observation at the begining of the iteration
 			for i in range(len(self.rewards)):
 				self.rewards[i] = 0. # Reset rewards
 		
+		thisPolicy = self.fix_policy() # Select the policy for this agent step
 		thisAction = self.select_action(thisPolicy, thisObservation) # Select action given the policy and the observation
 		self.states.append(observation)
 		self.count += 1
@@ -96,7 +105,7 @@ class SwimmerAgent(Agent):
 	
 	def agent_message(self,inMessage):
 		if inMessage=="what is your name?":
-			return "my name is skeleton_agent, Python edition!";
+			return "my name is swimmer_agent, Python edition!";
 		else:
 			return "I don't know how to respond to your message";
 
