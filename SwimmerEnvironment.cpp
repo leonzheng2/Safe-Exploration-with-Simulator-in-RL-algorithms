@@ -5,9 +5,6 @@
 */
 const char* env_init()
 {    
-	std::string s = "SwimmerEnvironment(C++) by Leon Zheng";
-	const char *task_spec_string = s.c_str();
-
 	/* Allocate the observation variable */
 	const int numVar = 2*(2+n_seg); // A_0 is the head of the swimmer, 2D point; and there are n_seg angles. We want also the derivatives.
 	allocateRLStruct(&this_observation,0,numVar,0);
@@ -16,6 +13,14 @@ const char* env_init()
 	this_reward_observation.observation=&this_observation;
 	this_reward_observation.reward=0;
 	this_reward_observation.terminal=0;
+
+	std::string s = "VERSION RL-Glue-3.0 PROBLEMTYPE continuing 
+	DISCOUNTFACTOR 0.9 
+	OBSERVATIONS DOUBLES (" + std::to_string(2*(2+n_seg)) + " UNSPEC UNSPEC)* 
+	ACTIONS DOUBLES (" + std::to_string(n_seg-1) + " " + std::to_string(-max_u) + " " std::to_string(max_u) + "* 
+	REWARDS (UNSPEC UNSPEC) 
+	EXTRA SwimmerEnvironment(C++) by Leon Zheng";
+	const char *task_spec_string = s.c_str();
 
    return task_spec_string;
 }

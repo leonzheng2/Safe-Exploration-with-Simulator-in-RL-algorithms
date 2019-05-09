@@ -1,11 +1,17 @@
+"""
+	ARS implementation for learning the swimmer task. RL Agent implementation in the RL Glue framework.
+"""
+
 import numpy as np
 import sys
 import copy
+from statistics import 	stdev
+
 from rlglue.agent.Agent import Agent
 from rlglue.agent import AgentLoader as AgentLoader
 from rlglue.types import Action
 from rlglue.types import Observation
-from statistics import 	stdev
+from rlglue.utils import TaskSpecVRLGLUE3
 
 # Parameters
 n_seg = 3
@@ -50,6 +56,25 @@ class SwimmerAgent(Agent):
 	def agent_init(self,taskSpec):
 
 		# TODO Parse taskSpec
+		TaskSpec = TaskSpecVRLGLUE3.TaskSpecParser(taskSpec)
+		if TaskSpec.valid:
+			print("Parsing task spec...")
+			# assert len(TaskSpec.getIntObservations())==1, "expecting 1-dimensional discrete observations"
+			# assert len(TaskSpec.getDoubleObservations())==0, "expecting no continuous observations"
+			# assert not TaskSpec.isSpecial(TaskSpec.getIntObservations()[0][0]), " expecting min observation to be a number not a special value"
+			# assert not TaskSpec.isSpecial(TaskSpec.getIntObservations()[0][1]), " expecting max observation to be a number not a special value"
+			# self.numStates=TaskSpec.getIntObservations()[0][1]+1;
+
+			# assert len(TaskSpec.getIntActions())==1, "expecting 1-dimensional discrete actions"
+			# assert len(TaskSpec.getDoubleActions())==0, "expecting no continuous actions"
+			# assert not TaskSpec.isSpecial(TaskSpec.getIntActions()[0][0]), " expecting min action to be a number not a special value"
+			# assert not TaskSpec.isSpecial(TaskSpec.getIntActions()[0][1]), " expecting max action to be a number not a special value"
+			# self.numActions=TaskSpec.getIntActions()[0][1]+1;
+			
+			# self.value_function=[self.numActions*[0.0] for i in range(self.numStates)]
+
+		else:
+			print("Task Spec could not be parsed: "+taskSpecString)
 
 		# Initialization of variables
 		self.iterationObs = Observation()
