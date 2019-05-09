@@ -1,36 +1,20 @@
-# 
-# Copyright (C) 2008, Brian Tanner
-# 
-#http://rl-glue-ext.googlecode.com/
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
 import numpy as np
-import random
 import sys
 import copy
 from rlglue.agent.Agent import Agent
 from rlglue.agent import AgentLoader as AgentLoader
 from rlglue.types import Action
 from rlglue.types import Observation
-
-from random import Random
+from statistics import 	stdev
 
 # Parameters
 n_seg = 3
 N = 10
 H = 1000
+b = N
+alpha = 0.1
+
+### TODO: V2 version
 
 class SwimmerAgent(Agent):
 	"""
@@ -50,10 +34,10 @@ class SwimmerAgent(Agent):
 	# A_0 is the head of the swimmer, 2D point; and there are n_seg angles. We want also the derivatives.
 
 	# Perturbations for the 2N rollouts
-	deltas = [np.zeros((n_seg-1, 2*(2+n_seg))) for i in range(N)]
+	deltas = []
 
 	# Rewards obtained at the end of the 2N rollouts
-	rewards = [0. for i in range(2*N)]
+	rewards = []
 
 	# Counter which increments only after one agent step
 	count = 0
@@ -64,36 +48,43 @@ class SwimmerAgent(Agent):
 	"""
 	
 	def agent_init(self,taskSpec):
-		#See the sample_sarsa_agent in the mines-sarsa-example project for how to parse the task spec
-		self.lastAction=Action()
-		self.lastObservation=Observation()
 
-		# Reset count
-		count = 0
+		# TODO Parse taskSpec
+
+		# Initialization of variables
+		self.iterationObs = Observation()
+		self.states = []
+		self.agentPolicy = np.zeros((n_seg-1, 2*(2+n_seg)))
+		self.deltas = [np.zeros((n_seg-1, 2*(2+n_seg))) for i in range(N)]
+		self.rewards = [0. for i in range(2*N)]
+		self.count = 0
 		
 	def agent_start(self,observation):
 		raise NotImplementedError
 	
 	def agent_step(self,reward, observation):
-		thisPolicy = fix_policy() # Select the policy for this agent step
+		thisPolicy = self.fix_policy() # Select the policy for this agent step
 		thisObservation = copy.deepcopy(observation) # In general case, the observation used to select the action is the last observation given by the environment
 
-		if new_rollout():
-			idx = (count-H)/H
-			rewards[idx] = reward # Update reward. The current reward is the one received at the end of the previous rollout.
+		# New rollout
+		if self.count%H == 0:
+			idx = self.count//H - 1 
+			self.rewards[idx] = reward # Update reward. The current reward is the one received at the end of the previous rollout.
 			thisObservation = copy.deepcopy(iterationObs) # At the begining of a new rollout, we start again with the initial observation.
 
-		if new_iteration():
-			if count>0:
-				update_policy() # Use the previous rewards to update the policy. Only after the first iteration.
-			sample_deltas() # Choose the deltas directions
+		# New iteration
+		if self.count%(2*N*H) == 0:
+			if self.count>0:
+				order = self.order_directions()
+				self.update_policy(order) # Use the previous rewards to update the policy. Only after the first iteration.
+			self.sample_deltas() # Choose the deltas directions
 			iterationObs = copy.deepcopy(observation) # Fix the observation at the begining of the iteration
-			for i in range(len(rewards)):
-				rewards[i] = 0. # Reset rewards
+			for i in range(len(self.rewards)):
+				self.rewards[i] = 0. # Reset rewards
 		
-		thisAction = select_action(thisPolicy, thisObservation) # Select action given the policy and the observation
-		states.append(observation)
-		count += 1
+		thisAction = self.select_action(thisPolicy, thisObservation) # Select action given the policy and the observation
+		self.states.append(observation)
+		self.count += 1
 
 		return thisAction
 	
@@ -113,36 +104,60 @@ class SwimmerAgent(Agent):
 	""" 
 		Helper methods 
 	"""	
-	def new_rollout(self):
-		return count % H == 0
-
-	def new_iteration(self):
-		return count % (2*N*H) == 0
-
 	def fix_policy(self):
 		"""
 			Compute the policy given the current count
 		"""
-		raise NotImplementedError
+
+		# V1 and V1-t ARS policy
+		idx = self.count%(2*N*H)
+		rollout_idx = idx//H
+		if rollout_idx%2==0:
+			return self.agentPolicy + nu*self.deltas[rollout_idx//2]
+		else:
+			return self.agentPolicy - nu*self.deltas[rollout_idx//2]
+
+		# TODO V2 and V2-t ARS policy
 
 	def select_action(self, policy, state):
 		"""
 			Action selection based on linear policies
 		"""
-		raise NotImplementedError
+		state_vector = np.array(state.doubleArray)
+		action_vector = np.matmul(policy*state_vector)
+		action_selected = Action(numDoubles=action_vector.size)
+		action_selected.doubleArray = action_vector.tolist()
+		return action_selected
 
 	def sample_deltas(self):
 		"""
 			Sample the N directions for rollouts with iid standard normal entries
 		"""
-		raise NotImplementedError
+		for i in range(len(self.deltas)):
+			deltas[i] = np.random.rand(self.agentPolicy.shape[0], self.agentPolicy.shape[1])
 
-	def update_policy(self):
+	def order_directions(self):
+		"""
+			Sort the directions delta_k by max(reward[k,+], reward[k,-]). Return the array of indices corresponding to ordering from largest to smallest direction.
+		"""
+		# TODO
+		return range(len(self.deltas))
+
+	def update_policy(self, order):
 		"""
 			Update the policy after the end of the previous iteration
 		"""
-		raise NotImplementedError
+		used_rewards = []
+		for i in range(b):
+			used_rewards += [self.rewards[2*order[i]], self.rewards[2*order[i]+1]]
+		sigma_r = stdev(used_rewards)
+		
+		grad = np.zeros(self.agentPolicy.shape)
+		for i in range(b):
+			grad += (self.rewards[2*order[i]]-self.rewards[2*order[i]+1]) * self.deltas[order[i]]
+		grad /= (b*sigma_r)
 
+		self.agentPolicy += alpha * grad
 
 if __name__=="__main__":
 	AgentLoader.loadAgent(SwimmerAgent())
