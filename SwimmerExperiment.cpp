@@ -15,11 +15,11 @@ int whichEpisode=0;
 
 
 // Parameters for the experience
-const size_t n_it = 10;
+const size_t n_it = 100;
 
 // Parameters from the agent
 const size_t H = 500;
-const size_t N = 5;
+const size_t N = 1;
 
 // Variables for experience
 const char* task_spec;
@@ -27,24 +27,7 @@ const char* responseMessage;
 const reward_observation_action_terminal_t *stepResponse;
 const observation_action_t *startResponse;		
 
-void runOneIteration(){
-	const size_t steps = 2*H*N;
-	for(size_t i=0; i<steps; i++){
-		stepResponse=RL_step();
-		if(i%100==0){
-			// Print head position
-			std::cout << "(" << stepResponse->observation->doubleArray[0] << "; " << stepResponse->observation->doubleArray[1] << ") and reward is " << stepResponse->reward << std::endl; 
-		}
-	}
-}
-
-int main(int argc, char *argv[]) {
-
-	std::cout << "\n\nExperiment starting up!\n" << std::endl;
-
-	task_spec=RL_init();
-	std::cout << "RL_init called, the environment sent task spec: " << task_spec << std::endl;
-
+void sendBasicMessages(){
 	std::cout << "\n\n----------Sending some sample messages----------\n" << std::endl;
 	/*Talk to the agent and environment a bit...*/
 	responseMessage=RL_agent_message("what is your name?");
@@ -56,55 +39,73 @@ int main(int argc, char *argv[]) {
 	std::cout << "Environment responded to \"what is your name?\" with: " << responseMessage << std::endl;
 	responseMessage=RL_env_message("If at first you don't succeed; call it version 1.0");
 	std::cout << "Environment responded to \"If at first you don't succeed; call it version 1.0\" with: " << responseMessage << std::endl;
+}
 
+void runOneTrainingIteration(){
+	const size_t steps = 2*H*N;
+	for(size_t i=0; i<steps; i++){
+		stepResponse=RL_step();
+		if(i%100==0){
+			// Print head position
+			std::cout << "(" << stepResponse->observation->doubleArray[0] << "; " << stepResponse->observation->doubleArray[1] << ") and reward is " << stepResponse->reward << std::endl; 
+		}
+	}
+}
+
+void run_training(){
 	std::cout << "\n\n----------Augmented Random Search training----------\n" << std::endl;
-	std::cout << "Starting the environment..." << std::endl;
+	responseMessage=RL_env_message("activate training");
+	std::cout << "Agent responded to \"activate training\" with: " << responseMessage << std::endl;
+	RL_init();
+
+	std::cout << "Starting the training..." << std::endl;
 	startResponse = RL_start();
 	std::cout << "First observation is (only head): (" << startResponse->observation->doubleArray[0] << "; " << startResponse->observation->doubleArray[1] << ")" << std::endl; 
 
-	std::cout << "Running iterations..." << std::endl;
+	std::cout << "Running training iterations..." << std::endl;
 	for(size_t i=0; i<n_it; i++){
-		runOneIteration();
+		runOneTrainingIteration();
 	}
+	std::cout << "End of the training" << std::endl;
+}
 
+void runOneEvaluationIteration(size_t current_it){
+	const size_t steps = H;
+	for(size_t i=0; i<steps; i++){
+		stepResponse=RL_step();
+	}
+	std::cout << "Reward for one rollout with policy at iteration " << current_it << ": " << stepResponse->reward << std::endl;
+}
 
-	// runEpisode(100);
-	// runEpisode(100);
-	// runEpisode(100);
-	// runEpisode(100);
-	// runEpisode(100);
-	// runEpisode(1);
-	// /* Remember that stepLimit of 0 means there is no limit at all!*/
-	// runEpisode(0);
-	// RL_cleanup();
+void run_evaluation(){
+	std::cout << "\n\n----------Evaluation----------\n" << std::endl;
+	responseMessage=RL_env_message("activate evaluation");
+	std::cout << "Agent responded to \"activate evaluation\" with: " << responseMessage << std::endl;
+	RL_init();
 
-	// printf("\n\n----------Stepping through an episode----------\n");
-	// /*We could also start over and do another experiment */
-	// task_spec=RL_init();
+	std::cout << "Starting the evaluation..." << std::endl;
+	startResponse = RL_start();
+	std::cout << "First observation is (only head): (" << startResponse->observation->doubleArray[0] << "; " << startResponse->observation->doubleArray[1] << ")" << std::endl; 
 
-	// /*We could run one step at a time instead of one episode at a time */
-	// /*Start the episode */
-	// startResponse=RL_start();
-	// printf("First observation and action were: %d %d\n",startResponse->observation->intArray[0],startResponse->action->intArray[0]);
+	std::cout << "Running evaluation iterations..." << std::endl;
+	for(size_t i=0; i<n_it; i++){
+		runOneEvaluationIteration(i);
+	}
+	std::cout << "End of the evaluation" << std::endl;
 
-	// /*Run one step */
-	// stepResponse=RL_step();
-	
-	// /*Run until the episode ends*/
-	// while(stepResponse->terminal!=1){
-	// 	stepResponse=RL_step();
-	// 	if(stepResponse->terminal!=1){
-	// 		/*Could optionally print state,action pairs */
-	// 		/*printf("(%d,%d) ",stepResponse.o.intArray[0],stepResponse.a.intArray[0]);*/
-	// 	}
-	// }
-	
-	// printf("\n\n----------Summary----------\n");
-	
+}
 
-	// printf("It ran for %d steps, total reward was: %f\n",RL_num_steps(),RL_return());
+int main(int argc, char *argv[]) {
+	std::cout << "\n\nExperiment starting up!\n" << std::endl;
+
+	task_spec=RL_init();
+	std::cout << "RL_init called, the environment sent task spec: " << task_spec << std::endl;
+
+	sendBasicMessages();
+	run_training();
+	run_evaluation();
+
 	RL_cleanup();
-
 
 	return 0;
 }
