@@ -13,13 +13,9 @@ from rlglue.types import Action
 from rlglue.types import Observation
 from rlglue.utils import TaskSpecVRLGLUE3
 
-# Parameters from environment
-n_seg = 3
-max_u = 5.
-
 # Parameters of the ARS algorithm
 N = 1
-H = 500
+H = 10
 b = N
 alpha = 0.01
 nu = 0.03
@@ -27,11 +23,8 @@ nu = 0.03
 ### TODO: V2 version
 
 class SwimmerAgent(Agent):
-	"""
-		Variables
-	"""
-	saveAgentPolicy = []
-	training = True
+
+	freeze = False
 
 	"""
 		RLGlue agent Methods
@@ -45,113 +38,96 @@ class SwimmerAgent(Agent):
 		TaskSpec = TaskSpecVRLGLUE3.TaskSpecParser(taskSpec)
 		if TaskSpec.valid:
 			print("Parsing task spec...")
-			# assert len(TaskSpec.getIntObservations())==1, "expecting 1-dimensional discrete observations"
-			# assert len(TaskSpec.getDoubleObservations())==0, "expecting no continuous observations"
-			# assert not TaskSpec.isSpecial(TaskSpec.getIntObservations()[0][0]), " expecting min observation to be a number not a special value"
-			# assert not TaskSpec.isSpecial(TaskSpec.getIntObservations()[0][1]), " expecting max observation to be a number not a special value"
-			# self.numStates=TaskSpec.getIntObservations()[0][1]+1;
-
-			# assert len(TaskSpec.getIntActions())==1, "expecting 1-dimensional discrete actions"
-			# assert len(TaskSpec.getDoubleActions())==0, "expecting no continuous actions"
-			# assert not TaskSpec.isSpecial(TaskSpec.getIntActions()[0][0]), " expecting min action to be a number not a special value"
-			# assert not TaskSpec.isSpecial(TaskSpec.getIntActions()[0][1]), " expecting max action to be a number not a special value"
-			# self.numActions=TaskSpec.getIntActions()[0][1]+1;
-			
-			# self.value_function=[self.numActions*[0.0] for i in range(self.numStates)]
-
+			self.n_seg = len(TaskSpec.getDoubleActions())+1
+			self.max_u = TaskSpec.getDoubleActions()[0][1]
 		else:
 			print("Task Spec could not be parsed: "+taskSpecString)
 
-			print("Initialization of training")
-			# Variables
-			self.iterationObs = Observation() # Iteration initial state: fixed during one iteration
-			self.states = [] # States encountered from the start of the training
-			self.agentPolicy = np.zeros((n_seg-1, 2*(2+n_seg)))
-			# n_seg-1 action variables
-			# 2*(2+n_seg) state variables
-			# A_0 is the head of the swimmer, 2D point; and there are n_seg angles. We want also the derivatives.
-			self.saveAgentPolicy = [copy.deepcopy(self.agentPolicy)] # Progress of agentPolicy
-			self.deltas = [np.zeros((n_seg-1, 2*(2+n_seg))) for i in range(N)] # Perturbations for the 2N rollouts
-			self.rewards = [0. for i in range(2*N)] # Rewards obtained at the end of the 2N rollouts
-			self.count = 0 # Counter which increments only after one agent step
-		else:
-			print("Initialization of evaluation")
-			assert len(self.saveAgentPolicy) > 0
-			self.iterationObs = Observation() # Iteration initial state: fixed during one iteration
-			self.agentPolicy = self.saveAgentPolicy[0]
-			# TODO
-
+		print("Initialization of training")
+		# Variables
+		self.initial_state = Observation() # Iteration initial state: fixed during one iteration
+		self.states = [] # States encountered from the start of the training
+		self.agentPolicy = np.zeros((self.n_seg-1, 2*(2+self.n_seg)))
+		# n_seg-1 action variables
+		# 2*(2+n_seg) state variables
+		# A_0 is the head of the swimmer, 2D point; and there are n_seg angles. We want also the derivatives.
+		self.deltas = [np.zeros((self.n_seg-1, 2*(2+self.n_seg))) for i in range(N)] # Perturbations for the 2N rollouts
+		self.rewards = [0. for i in range(2*N)] # Rewards obtained at the end of the 2N rollouts
+		self.count = 0 # Counter which increments only after one agent step
+		self.ev_count = 0 # Counter for evaluation
 
 	def agent_start(self,observation):
-		assert len(observation.doubleArray) == 2*(2+n_seg)
+		assert len(observation.doubleArray) == 2*(2+self.n_seg)
+		self.sample_deltas() # Choose the deltas directions
+		self.initial_state = copy.deepcopy(observation) # Fix the observation at the begining of the iteration
+		for i in range(len(self.rewards)):
+			self.rewards[i] = 0. # Reset rewards
 
-		if self.training:
-			self.sample_deltas() # Choose the deltas directions
-			self.iterationObs = copy.deepcopy(observation) # Fix the observation at the begining of the iteration
-			for i in range(len(self.rewards)):
-				self.rewards[i] = 0. # Reset rewards
-
-			thisPolicy = self.fix_policy() # Select the policy for this agent step
-
-			thisAction = self.select_action(thisPolicy, observation) # Select action given the policy and the observation
-			self.states.append(observation)
-			self.count += 1
-		else:
-			self.iterationObs = copy.deepcopy(observation) # Fix the observation at the begining of the iteration
-			thisAction = self.select_action(self.agentPolicy, observation)
-
+		thisPolicy = self.fix_policy() # Select the policy for this agent step
+		thisAction = self.select_action(thisPolicy, observation) # Select action given the policy and the observation
+		# self.states.append(observation)
+		# self.count += 1
+		# print(f"Count: {self.count}")
 		return thisAction
 	
 	def agent_step(self,reward, observation):
-		assert len(observation.doubleArray) == 2*(2+n_seg)
+		assert len(observation.doubleArray) == 2*(2+self.n_seg)
+		thisObservation = copy.deepcopy(observation) # In general case, the observation used to select the action is the last observation given by the environment
 
-		if self.training:
-			thisObservation = copy.deepcopy(observation) # In general case, the observation used to select the action is the last observation given by the environment
-
+		if not self.freeze:
 			# New rollout
 			if self.count%H == 0:
 				idx = (self.count//H - 1)%(2*N) 
 				self.rewards[idx] = reward # Update reward. The current reward is the one received at the end of the previous rollout.
-				thisObservation = copy.deepcopy(self.iterationObs) # At the begining of a new rollout, we start again with the initial observation.
+				thisObservation = copy.deepcopy(self.initial_state) # At the begining of a new rollout, we start again with the initial observation.
+
+		else:
+			# New rollout
+			if self.ev_count == 0:
+				thisObservation = copy.deepcopy(self.initial_state) # At the begining of a new rollout, we start again with the initial observation.
+
+		thisPolicy = self.fix_policy() # Select the policy for this agent step
+		print(f"Policy: {thisPolicy}")
+		thisAction = self.select_action(thisPolicy, thisObservation) # Select action given the policy and the observation
+
+		if not self.freeze:
+			self.states.append(observation)
+			self.count += 1
+			print(f"Count: {self.count}")
 
 			# New iteration
 			if self.count%(2*N*H) == 0:
 				order = self.order_directions()
 				self.update_policy(order) # Use the previous rewards to update the policy. Only after the first iteration.
 				self.sample_deltas() # Choose the deltas directions
-				self.iterationObs = copy.deepcopy(observation) # Fix the observation at the begining of the iteration
 				for i in range(len(self.rewards)):
 					self.rewards[i] = 0. # Reset rewards
-			
-			thisPolicy = self.fix_policy() # Select the policy for this agent step
-			thisAction = self.select_action(thisPolicy, thisObservation) # Select action given the policy and the observation
-			self.states.append(observation)
+
 		else:
-			# New rollout
-			if self.count%H == 0:
-				thisObservation = copy.deepcopy(self.iterationObs) # At the begining of a new rollout, we start again with the initial observation.
-				self.agentPolicy = self.saveAgentPolicy[self.count//H]
-			thisAction = self.select_action(self.agentPolicy, observation)
-
-		self.count += 1
-
+			self.ev_count += 1
+			print(f"Evaluation Count: {self.ev_count}")
+		
 		return thisAction
-	
+
 	def agent_end(self,reward):
 		pass
 	
 	def agent_cleanup(self):
 		pass
 	
-	def agent_message(self,inMessage):
+	def agent_message(self,inMessageByte):
+		inMessage = inMessageByte.decode()
 		if inMessage=="what is your name?":
 			return "my name is swimmer_agent, Python edition!";
-		elif inMessage=="activate training":
-			self.training = True
-			return "training is activated"
-		elif inMessage=="activate evaluation":
-			self.training = False
-			return "evaluation is activated"
+		elif inMessage=="freeze training":
+			self.freeze = True
+			self.ev_count = 0
+			print("===========Training is freezed===========")
+			return "training is freezed"
+		elif inMessage=="unfreeze training":
+			self.freeze = False
+			print("===========Training is unfreezed===========")
+			return "training is unfreezed"
 		else:
 			return "I don't know how to respond to your message";
 
@@ -163,6 +139,8 @@ class SwimmerAgent(Agent):
 		"""
 			Compute the policy given the current count
 		"""
+		if self.freeze:
+			return self.agentPolicy
 
 		# V1 and V1-t ARS policy
 		idx = self.count%(2*N*H)
@@ -181,12 +159,15 @@ class SwimmerAgent(Agent):
 		state_vector = np.array(state.doubleArray)
 		action_vector = np.matmul(policy, state_vector)
 
+		print(f"State: {state_vector}")
+		print(f"Action: {action_vector}")
+
 		#Constraint
 		for i in range(len(action_vector)):
-			if action_vector[i] > max_u:
-				action_vector[i] = max_u
-			elif action_vector[i] < -max_u:
-				action_vector[i] = -max_u
+			if action_vector[i] > self.max_u:
+				action_vector[i] = self.max_u
+			elif action_vector[i] < -self.max_u:
+				action_vector[i] = -self.max_u
 
 		action_selected = Action(numDoubles=action_vector.size)
 		action_selected.doubleArray = action_vector.tolist()
@@ -224,8 +205,6 @@ class SwimmerAgent(Agent):
 		self.agentPolicy += alpha * grad
 
 		print(f"Policy updated: {self.agentPolicy}")
-
-		self.saveAgentPolicy.append(copy.deepcopy(self.agentPolicy))
 
 if __name__=="__main__":
 	AgentLoader.loadAgent(SwimmerAgent())

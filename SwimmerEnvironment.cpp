@@ -5,6 +5,7 @@
 */
 const char* env_init()
 {    
+	// std::cout << "Initialize environment" << std::endl;
 	/* Allocate the observation variable */
 	const int numVar = 2*(2+n_seg); // A_0 is the head of the swimmer, 2D point; and there are n_seg angles. We want also the derivatives.
 	allocateRLStruct(&this_observation,0,numVar,0);
@@ -14,7 +15,7 @@ const char* env_init()
 	this_reward_observation.reward=0;
 	this_reward_observation.terminal=0;
 
-	static std::string task_spec_string = "VERSION RL-Glue-3.0 PROBLEMTYPE continuing DISCOUNTFACTOR 0.9 OBSERVATIONS DOUBLES (" + std::to_string(2*(2+n_seg)) + " UNSPEC UNSPEC)* ACTIONS DOUBLES (" + std::to_string(n_seg-1) + " " + std::to_string(-max_u) + " " + std::to_string(max_u) + ")* REWARDS (UNSPEC UNSPEC) EXTRA SwimmerEnvironment(C++) by Leon Zheng";
+	static std::string task_spec_string = "VERSION RL-Glue-3.0 PROBLEMTYPE continuing DISCOUNTFACTOR 0.9 OBSERVATIONS DOUBLES (" + std::to_string(2*(2+n_seg)) + " UNSPEC UNSPEC) ACTIONS DOUBLES (" + std::to_string(n_seg-1) + " " + std::to_string(-max_u) + " " + std::to_string(max_u) + ") REWARDS (UNSPEC UNSPEC) EXTRA SwimmerEnvironment(C++) by Leon Zheng";
 	
 	return task_spec_string.c_str();
 }
@@ -24,7 +25,7 @@ const observation_t *env_start()
 	if(default_start_state){
 		// Default position: everything is at 0
 		for(size_t i=0; i<this_observation.numDoubles; i++){
-			this_observation.doubleArray[i] = 0;
+			this_observation.doubleArray[i] = 0.01;
 		}
 	} else {
 		//TODO random positions of the head and angles, initial speed is 0
@@ -39,6 +40,8 @@ const reward_observation_terminal_t *env_step(const action_t *this_action)
 	for(size_t i=0; i<n_seg-1; i++){
 		assert(abs(this_action->doubleArray[i]) <= max_u);
 	}
+
+	// TODO: THE ENVIRONMENT SHOULD ALSO GO BACK TO INITIAL THIS OBSERVATION!
 
 	updateState(this_observation, this_action);
 	this_reward_observation.observation = &this_observation;
@@ -65,6 +68,16 @@ const char* env_message(const char * message)
     }
     else if(strcmp(message, "what is your name?")==0){
     	return "my name is swimmer_environment, C++ edition!";
+    }
+    else if(strcmp(message, "set initial state")==0){
+    	if(default_start_state){
+			// Default position: everything is at 0
+			for(size_t i=0; i<this_observation.numDoubles; i++){
+				this_observation.doubleArray[i] = 0.01;
+			}
+		} else {
+		//TODO random positions of the head and angles, initial speed is 0
+		}
     }
 
    	return "SwimmerEnvironment(C++) does not respond to that message.";

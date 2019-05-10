@@ -26,12 +26,12 @@ static int default_start_state = 1;
 // Parameters
 // TODO put the parameters has an input of the file and don't recompile at each time
 static Vector2d direction(1.0, 0);
-static const size_t n_seg = 3;
-static const double max_u = 5;
+static const size_t n_seg = 2;
+static const double max_u = 5.;
 static const double l_i = 1;
 static const double k = 10;
 static const double m_i = 1;
-static const double h_global = 0.01;
+static const double h_global = 0.1;
 
 // Methods
 const char* env_init();
