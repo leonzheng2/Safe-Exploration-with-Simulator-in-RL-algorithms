@@ -15,11 +15,11 @@ int whichEpisode=0;
 
 
 // Parameters for the experience
-const size_t n_it = 100;
+const size_t n_it = 1;
 
 // Parameters from the agent
 const size_t N = 1;
-const size_t H = 10;
+const size_t H = 100;
 
 // Variables for experience
 const char* task_spec;
@@ -45,14 +45,14 @@ void runOneTrainingIteration(size_t current_it){
 	RL_agent_message("unfreeze training");
 	for(size_t i=0; i<2*H*N; i++){
 		if(i%H == 0){
-			RL_env_message("set initial state")
+			RL_env_message("load state");
 		}
 		stepResponse=RL_step();
 	}
 	RL_agent_message("freeze training");
 	for(size_t i=0; i<H; i++){
 		if(i%H == 0){
-			RL_env_message("set initial state")
+			RL_env_message("load state");
 		}
 		stepResponse=RL_step();
 	}

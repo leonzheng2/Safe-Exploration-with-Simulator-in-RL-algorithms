@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <cmath>
+#include <vector>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h> /*assert*/
@@ -18,6 +19,7 @@ using namespace Eigen;
 
 // Global variables for RLGlue methods
 static observation_t this_observation;
+static observation_t saved_observation;
 static reward_observation_terminal_t this_reward_observation;
 
 /* Used if a message is sent to the environment to use default start states */
@@ -40,9 +42,11 @@ const reward_observation_terminal_t *env_step(const action_t *this_action);
 void env_cleanup();
 const char* env_message(const char * message);
 
-void computeAccelerations(const double* torque, const Vector2d p_head, const Vector2d v_head, const double* p_angle, const double* v_angle, 
-							double* a_angle, Vector2d& a_head);
-void semiImplicitEuler(double h, Vector2d& p_head, double* p_angle, Vector2d& v_head, double* v_angle, const Vector2d& a_head, const double* a_angle);
+void save_state();
+void load_state();
+void compute_accelerations(const std::vector<double> &torque, const Vector2d p_head, const Vector2d v_head, const std::vector<double> &p_angle, const std::vector<double> &v_angle, 
+							Vector2d& a_head, std::vector<double> &a_angle);
+void semi_implicit_euler(double h, Vector2d& p_head, std::vector<double> &p_angle, Vector2d& v_head, std::vector<double> &v_angle, const Vector2d& a_head, const std::vector<double> &a_angle);
 void updateState(observation_t& state, const action_t* action);
 double calculate_reward(const observation_t& state);
 int check_terminal(const observation_t& state);

@@ -15,7 +15,7 @@ from rlglue.utils import TaskSpecVRLGLUE3
 
 # Parameters of the ARS algorithm
 N = 1
-H = 10
+H = 100
 b = N
 alpha = 0.01
 nu = 0.03
@@ -40,10 +40,11 @@ class SwimmerAgent(Agent):
 			print("Parsing task spec...")
 			self.n_seg = len(TaskSpec.getDoubleActions())+1
 			self.max_u = TaskSpec.getDoubleActions()[0][1]
+			print("Task spec parsed!")
 		else:
 			print("Task Spec could not be parsed: "+taskSpecString)
 
-		print("Initialization of training")
+		print("Initialization of training...")
 		# Variables
 		self.initial_state = Observation() # Iteration initial state: fixed during one iteration
 		self.states = [] # States encountered from the start of the training
@@ -51,13 +52,17 @@ class SwimmerAgent(Agent):
 		# n_seg-1 action variables
 		# 2*(2+n_seg) state variables
 		# A_0 is the head of the swimmer, 2D point; and there are n_seg angles. We want also the derivatives.
-		self.deltas = [np.zeros((self.n_seg-1, 2*(2+self.n_seg))) for i in range(N)] # Perturbations for the 2N rollouts
+		self.deltas = [np.zeros((self.n_seg-1, 2*(2+self.n_seg))) for i in range(N)]
+		self.deltaPolicies = [self.agentPolicy for i in range(2*N)] # 2N policies for the 2N rollouts
 		self.rewards = [0. for i in range(2*N)] # Rewards obtained at the end of the 2N rollouts
 		self.count = 0 # Counter which increments only after one agent step
 		self.ev_count = 0 # Counter for evaluation
+		print("Training initialized!")
 
 	def agent_start(self,observation):
+		print("Starting agent...")
 		assert len(observation.doubleArray) == 2*(2+self.n_seg)
+
 		self.sample_deltas() # Choose the deltas directions
 		self.initial_state = copy.deepcopy(observation) # Fix the observation at the begining of the iteration
 		for i in range(len(self.rewards)):
@@ -65,9 +70,8 @@ class SwimmerAgent(Agent):
 
 		thisPolicy = self.fix_policy() # Select the policy for this agent step
 		thisAction = self.select_action(thisPolicy, observation) # Select action given the policy and the observation
-		# self.states.append(observation)
-		# self.count += 1
-		# print(f"Count: {self.count}")
+		print("Agent started!")
+
 		return thisAction
 	
 	def agent_step(self,reward, observation):
@@ -145,10 +149,7 @@ class SwimmerAgent(Agent):
 		# V1 and V1-t ARS policy
 		idx = self.count%(2*N*H)
 		rollout_idx = idx//H
-		if rollout_idx%2==0:
-			return self.agentPolicy + nu*self.deltas[rollout_idx//2]
-		else:
-			return self.agentPolicy - nu*self.deltas[rollout_idx//2]
+		return self.deltaPolicies[rollout_idx]
 
 		# TODO V2 and V2-t ARS policy
 
@@ -180,6 +181,8 @@ class SwimmerAgent(Agent):
 		"""
 		for i in range(len(self.deltas)):
 			self.deltas[i] = np.random.rand(self.agentPolicy.shape[0], self.agentPolicy.shape[1])
+			self.deltaPolicies[2*i] = self.agentPolicy + nu*self.deltas[i]
+			self.deltaPolicies[2*i+1] = self.agentPolicy - nu*self.deltas[i]
 
 	def order_directions(self):
 		"""
