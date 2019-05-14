@@ -225,4 +225,3 @@ class SwimmerARSAgent(Agent):
 
 if __name__=="__main__":
 	AgentLoader.loadAgent(SwimmerARSAgent())
-	AgentLoader.loadAgent(SwimmerSarsaAgent())
