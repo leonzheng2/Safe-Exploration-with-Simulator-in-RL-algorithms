@@ -13,13 +13,6 @@ from rlglue.types import Action
 from rlglue.types import Observation
 from rlglue.utils import TaskSpecVRLGLUE3
 
-# Parameters of the ARS algorithm
-N = 1
-H = 100
-b = N
-alpha = 0.01
-nu = 0.03
-
 ### TODO: V2 version
 
 class SwimmerAgent(Agent):
@@ -52,9 +45,9 @@ class SwimmerAgent(Agent):
 		# n_seg-1 action variables
 		# 2*(2+n_seg) state variables
 		# A_0 is the head of the swimmer, 2D point; and there are n_seg angles. We want also the derivatives.
-		self.deltas = [np.zeros((self.n_seg-1, 2*(2+self.n_seg))) for i in range(N)]
-		self.deltaPolicies = [self.agentPolicy for i in range(2*N)] # 2N policies for the 2N rollouts
-		self.rewards = [0. for i in range(2*N)] # Rewards obtained at the end of the 2N rollouts
+		self.deltas = [np.zeros((self.n_seg-1, 2*(2+self.n_seg))) for i in range(self.N)]
+		self.deltaPolicies = [self.agentPolicy for i in range(2*self.N)] # 2N policies for the 2N rollouts
+		self.rewards = [0. for i in range(2*self.N)] # Rewards obtained at the end of the 2N rollouts
 		self.count = 0 # Counter which increments only after one agent step
 		self.ev_count = 0 # Counter for evaluation
 		print("Training initialized!")
@@ -80,8 +73,8 @@ class SwimmerAgent(Agent):
 
 		if not self.freeze:
 			# New rollout
-			if self.count%H == 0:
-				idx = (self.count//H - 1)%(2*N) 
+			if self.count%self.H == 0:
+				idx = (self.count//self.H - 1)%(2*self.N) 
 				self.rewards[idx] = reward # Update reward. The current reward is the one received at the end of the previous rollout.
 				thisObservation = copy.deepcopy(self.initial_state) # At the begining of a new rollout, we start again with the initial observation.
 
@@ -91,16 +84,16 @@ class SwimmerAgent(Agent):
 				thisObservation = copy.deepcopy(self.initial_state) # At the begining of a new rollout, we start again with the initial observation.
 
 		thisPolicy = self.fix_policy() # Select the policy for this agent step
-		print(f"Policy: {thisPolicy}")
+		# print(f"Policy: {thisPolicy}")
 		thisAction = self.select_action(thisPolicy, thisObservation) # Select action given the policy and the observation
 
 		if not self.freeze:
 			self.states.append(observation)
 			self.count += 1
-			print(f"Count: {self.count}")
+			# print(f"Count: {self.count}")
 
 			# New iteration
-			if self.count%(2*N*H) == 0:
+			if self.count%(2*self.N*self.H) == 0:
 				order = self.order_directions()
 				self.update_policy(order) # Use the previous rewards to update the policy. Only after the first iteration.
 				self.sample_deltas() # Choose the deltas directions
@@ -109,7 +102,7 @@ class SwimmerAgent(Agent):
 
 		else:
 			self.ev_count += 1
-			print(f"Evaluation Count: {self.ev_count}")
+			# print(f"Evaluation Count: {self.ev_count}")
 		
 		return thisAction
 
@@ -123,15 +116,20 @@ class SwimmerAgent(Agent):
 		inMessage = inMessageByte.decode()
 		if inMessage=="what is your name?":
 			return "my name is swimmer_agent, Python edition!";
-		elif inMessage=="freeze training":
+		if inMessage=="freeze training":
 			self.freeze = True
 			self.ev_count = 0
-			print("===========Training is freezed===========")
+			# print("===========Training is freezed===========")
 			return "training is freezed"
-		elif inMessage=="unfreeze training":
+		if inMessage=="unfreeze training":
 			self.freeze = False
-			print("===========Training is unfreezed===========")
+			# print("===========Training is unfreezed===========")
 			return "training is unfreezed"
+		if inMessage=="set parameters":
+			self.set_parameters()
+			s = f"Agent parameters are: N={self.N}; b={self.b}, H={self.H}, alpha={self.alpha}, nu={self.nu}"
+			print(s)
+			return s
 		else:
 			return "I don't know how to respond to your message";
 
@@ -147,8 +145,8 @@ class SwimmerAgent(Agent):
 			return self.agentPolicy
 
 		# V1 and V1-t ARS policy
-		idx = self.count%(2*N*H)
-		rollout_idx = idx//H
+		idx = self.count%(2*self.N*self.H)
+		rollout_idx = idx//self.H
 		return self.deltaPolicies[rollout_idx]
 
 		# TODO V2 and V2-t ARS policy
@@ -160,8 +158,8 @@ class SwimmerAgent(Agent):
 		state_vector = np.array(state.doubleArray)
 		action_vector = np.matmul(policy, state_vector)
 
-		print(f"State: {state_vector}")
-		print(f"Action: {action_vector}")
+		# print(f"State: {state_vector}")
+		# print(f"Action: {action_vector}")
 
 		#Constraint
 		for i in range(len(action_vector)):
@@ -181,8 +179,8 @@ class SwimmerAgent(Agent):
 		"""
 		for i in range(len(self.deltas)):
 			self.deltas[i] = np.random.rand(self.agentPolicy.shape[0], self.agentPolicy.shape[1])
-			self.deltaPolicies[2*i] = self.agentPolicy + nu*self.deltas[i]
-			self.deltaPolicies[2*i+1] = self.agentPolicy - nu*self.deltas[i]
+			self.deltaPolicies[2*i] = self.agentPolicy + self.nu*self.deltas[i]
+			self.deltaPolicies[2*i+1] = self.agentPolicy - self.nu*self.deltas[i]
 
 	def order_directions(self):
 		"""
@@ -196,18 +194,34 @@ class SwimmerAgent(Agent):
 			Update the policy after the end of the previous iteration
 		"""
 		used_rewards = []
-		for i in range(b):
+		for i in range(self.b):
 			used_rewards += [self.rewards[2*order[i]], self.rewards[2*order[i]+1]]
 		sigma_r = stdev(used_rewards)
 		
 		grad = np.zeros(self.agentPolicy.shape)
-		for i in range(b):
+		for i in range(self.b):
 			grad += (self.rewards[2*order[i]]-self.rewards[2*order[i]+1]) * self.deltas[order[i]]
-		grad /= (b*sigma_r)
+		grad /= (self.b*sigma_r)
 
-		self.agentPolicy += alpha * grad
+		self.agentPolicy += self.alpha * grad
 
 		print(f"Policy updated: {self.agentPolicy}")
+
+	def set_parameters(self):
+		f = open("parameters.txt", "r")
+		for line in f:
+			tokens = line.split(" ")
+			if(tokens[0]=="N"):
+				self.N = int(tokens[1])
+			elif(tokens[0]=="H"):
+				self.H = int(tokens[1])
+			elif(tokens[0]=="b"):
+				self.b = int(tokens[1])
+			elif(tokens[0]=="alpha"):
+				self.alpha = float(tokens[1])
+			elif(tokens[0]=="nu"):
+				self.nu = float(tokens[1])
+		f.close() 
 
 if __name__=="__main__":
 	AgentLoader.loadAgent(SwimmerAgent())

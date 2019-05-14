@@ -1,29 +1,5 @@
 #include "SwimmerEnvironment.h"
 
-void print_state(const observation_t &state){
-	Vector2d p_head(state.doubleArray[0], state.doubleArray[1]);
-	Vector2d v_head(state.doubleArray[2], state.doubleArray[3]);
-	double* p_angle = &state.doubleArray[4];
-	double* v_angle = &state.doubleArray[4 + n_seg];
-
-	std::cout << "p_head = (" << p_head[0] << "; " << p_head[1] << ")" << std::endl;
-	std::cout << "v_head = (" << v_head[0] << "; " << v_head[1] << ")" << std::endl;
-	std::string p_s = "p_angle = {";
-	std::string v_s = "v_angle = {";
-	for(int i=0; i<n_seg; i++){
-		p_s += std::to_string(p_angle[i]);
-		v_s += std::to_string(v_angle[i]);
-		if(i==n_seg-1){
-			p_s += "}";
-			v_s += "}";
-		} else {
-			p_s += "; ";
-			v_s += "; ";
-		}
-	}
-	std::cout << p_s << std::endl << v_s << std::endl;
-}
-
 // void test_updateState(observation_t &state, const action_t* action)
 // {
 // 	// Extract the informations

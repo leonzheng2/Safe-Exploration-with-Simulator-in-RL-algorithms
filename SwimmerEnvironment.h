@@ -4,6 +4,8 @@
 */
 
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <cmath>
 #include <vector>
 #include <stdio.h>
@@ -23,17 +25,17 @@ static observation_t saved_observation;
 static reward_observation_terminal_t this_reward_observation;
 
 /* Used if a message is sent to the environment to use default start states */
-static int default_start_state = 1;
+int default_start_state = 1;
 
 // Parameters
 // TODO put the parameters has an input of the file and don't recompile at each time
-static Vector2d direction(1.0, 0);
-static const size_t n_seg = 2;
-static const double max_u = 5.;
-static const double l_i = 1;
-static const double k = 10;
-static const double m_i = 1;
-static const double h_global = 0.1;
+Vector2d direction(1.0, 0);
+size_t n_seg;
+double max_u;
+double l_i;
+double k;
+double m_i;
+double h_global;
 
 // Methods
 const char* env_init();
@@ -42,11 +44,13 @@ const reward_observation_terminal_t *env_step(const action_t *this_action);
 void env_cleanup();
 const char* env_message(const char * message);
 
-void save_state();
-void load_state();
 void compute_accelerations(const std::vector<double> &torque, const Vector2d p_head, const Vector2d v_head, const std::vector<double> &p_angle, const std::vector<double> &v_angle, 
 							Vector2d& a_head, std::vector<double> &a_angle);
 void semi_implicit_euler(double h, Vector2d& p_head, std::vector<double> &p_angle, Vector2d& v_head, std::vector<double> &v_angle, const Vector2d& a_head, const std::vector<double> &a_angle);
 void updateState(observation_t& state, const action_t* action);
 double calculate_reward(const observation_t& state);
 int check_terminal(const observation_t& state);
+void save_state();
+void load_state();
+void print_state(const observation_t &state);
+void set_parameters();

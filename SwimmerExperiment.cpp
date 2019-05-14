@@ -1,6 +1,8 @@
 #include <iostream>   // for cout
+#include <fstream>
 #include <stdio.h>
 #include <string.h>
+#include <sstream>  
 
 #include <rlglue/RL_glue.h> /* RL_ function prototypes and RL-Glue types */
 	
@@ -15,11 +17,11 @@ int whichEpisode=0;
 
 
 // Parameters for the experience
-const size_t n_it = 1;
+size_t n_it = 10000;
 
 // Parameters from the agent
-const size_t N = 1;
-const size_t H = 100;
+size_t N;
+size_t H;
 
 // Variables for experience
 const char* task_spec;
@@ -27,7 +29,11 @@ const char* responseMessage;
 const reward_observation_action_terminal_t *stepResponse;
 const observation_action_t *startResponse;		
 
-void sendBasicMessages(){
+// Output results
+std::ofstream results;
+
+void sendBasicMessages()
+{
 	std::cout << "\n\n----------Sending some sample messages----------\n" << std::endl;
 	/*Talk to the agent and environment a bit...*/
 	responseMessage=RL_agent_message("what is your name?");
@@ -41,7 +47,33 @@ void sendBasicMessages(){
 	std::cout << "Environment responded to \"If at first you don't succeed; call it version 1.0\" with: " << responseMessage << std::endl;
 }
 
-void runOneTrainingIteration(size_t current_it){
+void setParameters()
+{
+	std::cout << "\n\n----------Setting environment and agent parameters----------\n" << std::endl;
+	responseMessage=RL_env_message("set parameters");
+	std::cout << "Environment response: " << responseMessage << std::endl;
+	responseMessage=RL_agent_message("set parameters");
+	std::cout << "Agent response: " << responseMessage << std::endl;
+
+	std::string line;
+	std::ifstream inFile("parameters.txt");
+
+	if (inFile.is_open()) {
+		while (getline(inFile, line)) {
+	    	std::stringstream ss(line);
+	    	std::string varName;
+	    	ss >> varName;
+			if(varName=="N") ss >> N;
+			else if(varName=="H") ss >> H;
+	    }
+	    inFile.close();
+	}
+	else std::cout << "Unable to open file for setting parameters for experiment"; 
+    std::cout << "Experiment parameters are: N=" + std::to_string(N) + "; H=" + std::to_string(H) << std::endl;
+}
+
+void runOneTrainingIteration(size_t current_it)
+{
 	RL_agent_message("unfreeze training");
 	for(size_t i=0; i<2*H*N; i++){
 		if(i%H == 0){
@@ -57,9 +89,11 @@ void runOneTrainingIteration(size_t current_it){
 		stepResponse=RL_step();
 	}
 	std::cout << "Reward for one rollout with policy at iteration " << current_it << ": " << stepResponse->reward << std::endl;
+	results << "Reward for one rollout with policy at iteration " << current_it << ": " << stepResponse->reward << "\n";
 }
 
-void run_training(){
+void run_training()
+{
 	std::cout << "\n\n----------Augmented Random Search training----------\n" << std::endl;
 
 
@@ -74,9 +108,16 @@ void run_training(){
 	std::cout << "End of the training" << std::endl;
 }
 
-int main(int argc, char *argv[]) {
-	std::cout << "\n\nExperiment starting up!\n" << std::endl;
+int main(int argc, char *argv[])
+{
+	results.open("results.txt");
+	std::cout << "\nExperiment starting up!\n" << std::endl;
+	if(argc > 1){
+		n_it = std::stoi(argv[1]);
+		std::cout << "Iteration number is " << n_it << std::endl;
+	}
 
+	setParameters();
 	task_spec=RL_init();
 	std::cout << "RL_init called, the environment sent task spec: " << task_spec << std::endl;
 
@@ -84,6 +125,7 @@ int main(int argc, char *argv[]) {
 	run_training();
 
 	RL_cleanup();
+	results.close();
 
 	return 0;
 }

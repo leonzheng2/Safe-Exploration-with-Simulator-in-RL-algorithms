@@ -5,7 +5,7 @@
 */
 const char* env_init()
 {    
-	// std::cout << "Initialize environment" << std::endl;
+	std::cout << "Initialize environment" << std::endl;
 	/* Allocate the observation variable */
 	const int numVar = 2*(2+n_seg); // A_0 is the head of the swimmer, 2D point; and there are n_seg angles. We want also the derivatives.
 	allocateRLStruct(&this_observation,0,numVar,0);
@@ -29,12 +29,14 @@ const observation_t *env_start()
 	if(default_start_state){
 		// Default position: random
 		for(size_t i=0; i<this_observation.numDoubles; i++){
-			this_observation.doubleArray[i] = 0.1;
+			this_observation.doubleArray[i] = 0.0000001 * (double) rand() / (RAND_MAX);
 		}
 	} else {
 		//TODO random positions of the head and angles, initial speed is 0
 	}
 	save_state();
+
+	print_state(this_observation);
 
 	std::cout << "Environment started!" << std::endl;
 
@@ -74,7 +76,7 @@ const char* env_message(const char * message)
         return "Message understood.  Using default start state.";
     }
     if(strcmp(message, "what is your name?")==0){
-    	return "my name is swimmer_environment, C++ edition!";
+    	return "My name is swimmer_environment, C++ edition!";
     }
     if(strcmp(message, "save state")==0){
     	save_state();
@@ -84,7 +86,12 @@ const char* env_message(const char * message)
     	load_state();
     	return "this_observation has the value of saved_observation";
     }
-
+    if(strcmp(message, "set parameters")==0){
+    	set_parameters();
+    	static std::string s = "Environment parameters are: n_seg=" + std::to_string(n_seg) + "; max_u=" + std::to_string(max_u) + "; l_i=" + std::to_string(l_i) + "; k=" + std::to_string(k) + "; m_i=" + std::to_string(m_i) + "; h_global=" + std::to_string(h_global);
+    	std::cout << s << std::endl;
+    	return s.c_str();
+    }
 
    	return "SwimmerEnvironment(C++) does not respond to that message.";
 }
@@ -104,22 +111,22 @@ void updateState(observation_t &state, const action_t* action)
 	std::vector<double> p_angle;
 	std::vector<double> v_angle;
 	for(size_t i=0; i<n_seg; i++){
-		p_angle.push_back(state.doubleArray[i]);
-		v_angle.push_back(state.doubleArray[i]);
+		p_angle.push_back(state.doubleArray[4+i]);
+		v_angle.push_back(state.doubleArray[4+n_seg+i]);
 	}
-	std::cout << "Information extracted" << std::endl;
+	// std::cout << "Information extracted" << std::endl;
 
 	// Compute accelerations
 	Vector2d a_head;
 	std::vector<double> a_angle;
 	compute_accelerations(torque, p_head, v_head, p_angle, v_angle, a_head, a_angle);
-	std::cout << "Accelerations computed" << std::endl;
+	// std::cout << "Accelerations computed" << std::endl;
 
 	// Semi-implicit Euler
 	//TODO ISSUE what is the time interval??
 	const double h = h_global;
 	semi_implicit_euler(h, p_head, p_angle, v_head, v_angle, a_head, a_angle);
-	std::cout << "Semi-implicit Euler done" << std::endl;
+	// std::cout << "Semi-implicit Euler done" << std::endl;
 
 	// Return new state
 	state.doubleArray[0] = p_head(0);
@@ -130,44 +137,45 @@ void updateState(observation_t &state, const action_t* action)
 		state.doubleArray[4+i] = p_angle[i];
 		state.doubleArray[4+n_seg+i] = v_angle[i];
 	}
-	std::cout << "New state returned" << std::endl;
+	// std::cout << "New state returned" << std::endl;
 }
 
 void compute_accelerations(const std::vector<double> &torque, const Vector2d p_head, const Vector2d v_head, const std::vector<double> &p_angle, const std::vector<double> &v_angle, 
 							Vector2d &a_head, std::vector<double> &a_angle)
 {
 	// Computes direction unit vectors
-	Vector2d p_i[n_seg];
-	Vector2d n_i[n_seg];
+	std::vector<Vector2d> p_i;
+	std::vector<Vector2d> n_i;
 	for(size_t i=0; i<n_seg; i++){
-		p_i[i] = Vector2d(cos(p_angle[i]), sin(p_angle[i]));
-		n_i[i] = Vector2d(-sin(p_angle[i]), cos(p_angle[i]));
+		p_i.push_back(Vector2d(cos(p_angle[i]), sin(p_angle[i])));
+		n_i.push_back(Vector2d(-sin(p_angle[i]), cos(p_angle[i])));
 	}
 
 	// Compute point's positions and speed
-	Vector2d p_points[n_seg+1];
-	Vector2d v_points[n_seg+1];
-	p_points[0] = p_head;
-	v_points[0] = v_head;
-	for(size_t i=1; i<n_seg+1; i++){
-		p_points[i] = p_points[i-1] + l_i*p_i[i-1];
-		v_points[i] = v_points[i-1] + l_i*v_angle[i-1]*n_i[i-1];
+	std::vector<Vector2d> p_points;
+	std::vector<Vector2d> v_points;
+	p_points.push_back(p_head);
+	v_points.push_back(v_head);
+	for(size_t i=0; i<n_seg; i++){
+		p_points.push_back(p_points[i] + l_i*p_i[i]);
+		v_points.push_back(v_points[i] + l_i*v_angle[i]*n_i[i]);
 	}
 
 	// And also for the mass centers
-	Vector2d p_center[n_seg];
-	Vector2d v_center[n_seg];
+	std::vector<Vector2d> p_center;
+	std::vector<Vector2d> v_center;
 	for(size_t i=0; i<n_seg; i++){
-		p_center[i] = (p_points[i]+p_points[i+1])/2;
-		v_center[i] = (v_points[i]+v_points[i+1])/2;
+		p_center.push_back((p_points[i]+p_points[i+1])/2);
+		v_center.push_back((v_points[i]+v_points[i+1])/2);
 	}
 
 	// Compute friction forces and torques
-	Vector2d F_friction[n_seg];
-	double M_friction[n_seg];
+	std::vector<Vector2d> F_friction;
+	std::vector<double> M_friction;
 	for(size_t i=0; i<n_seg; i++){
-		F_friction[i] = -k*l_i*v_center[i].dot(n_i[i])*n_i[i];
-		M_friction[i] = -k*v_angle[i]*pow(l_i,3)/12;
+		F_friction.push_back(-k*l_i*v_center[i].dot(n_i[i])*n_i[i]);
+		M_friction.push_back(-k*v_angle[i]*pow(l_i,3)/12);
+		// std::cout << "M_friction[" << i << "] = " << M_friction[i] << std::endl;
 	}
 
 	// Matrix and vector of the linear system
@@ -183,7 +191,9 @@ void compute_accelerations(const std::vector<double> &torque, const Vector2d p_h
 		A(i-1, n_seg + 2*(i+1) + 1) = -l_i/2*cos(p_angle[i-1]); // f_(i+1, y)
 		B(i-1) = M_friction[i-1];
 		if(i-2>=0)	B(i-1) += torque[i-2];
-		if(i-1<=n_seg-1) B(i-1) -= torque[i-1];
+		if(i-1<n_seg-1) B(i-1) -= torque[i-1];
+		// std::cout << "B[" << i-1 << "] = " << B(i-1) << std::endl;
+		// if(i-1<n_seg-1) std::cout << "torque[" << i-1 << "] = " << torque[i-1] << std::endl;
 	}
 
 
@@ -224,8 +234,8 @@ void compute_accelerations(const std::vector<double> &torque, const Vector2d p_h
 		B(3*n_seg+4 + 2*(i-1) + 1) = l_i/2*(sin(p_angle[i-1])*pow(v_angle[i-1],2) + sin(p_angle[i])*pow(v_angle[i],2));
 	}
 
-	std::cout << "-----------------Matrix A-----------------" << std::endl << A << std::endl << "------------------------------------------" << std::endl;
-	std::cout << "-----------------Vector B-----------------" << std::endl << B << std::endl << "------------------------------------------" << std::endl;
+	// std::cout << "-----------------Matrix A-----------------" << std::endl << A << std::endl << "------------------------------------------" << std::endl;
+	// std::cout << "-----------------Vector B-----------------" << std::endl << B << std::endl << "------------------------------------------" << std::endl;
 
 
 	// Solve linear equation, extract second derivatives
@@ -252,10 +262,10 @@ double calculate_reward(const observation_t& state)
 	const Vector2d v_head(state.doubleArray[2], state.doubleArray[3]);
 	const double* p_angle = &state.doubleArray[4];
 	const double* v_angle = &state.doubleArray[4 + n_seg];
-	Vector2d v_points[n_seg+1];
-	v_points[0] = v_head;
+	std::vector<Vector2d> v_points;
+	v_points.push_back(v_head);
 	for(size_t i=1; i<n_seg+1; i++){
-		v_points[i] = v_points[i-1] + l_i*v_angle[i-1]*Vector2d(-sin(p_angle[i-1]), cos(p_angle[i-1]));
+		v_points.push_back(v_points[i-1] + l_i*v_angle[i-1]*Vector2d(-sin(p_angle[i-1]), cos(p_angle[i-1])));
 	}
 
 	Vector2d v_barycenter(0., 0.);
@@ -271,7 +281,8 @@ int check_terminal(const observation_t& state)
 	return 0;
 }
 
-void save_state(){
+void save_state()
+{
 	saved_observation.numInts = this_observation.numInts;
 	saved_observation.numDoubles = this_observation.numDoubles;
 	saved_observation.numChars = this_observation.numChars;
@@ -286,7 +297,8 @@ void save_state(){
 	}
 }
 
-void load_state(){
+void load_state()
+{
 	this_observation.numInts = saved_observation.numInts;
 	this_observation.numDoubles = saved_observation.numDoubles;
 	this_observation.numChars = saved_observation.numChars;
@@ -299,4 +311,52 @@ void load_state(){
 	for(unsigned int i=0; i<this_observation.numChars; i++){
 		this_observation.charArray[i] = saved_observation.charArray[i];
 	}
+}
+
+void print_state(const observation_t &state)
+{
+	Vector2d p_head(state.doubleArray[0], state.doubleArray[1]);
+	Vector2d v_head(state.doubleArray[2], state.doubleArray[3]);
+	double* p_angle = &state.doubleArray[4];
+	double* v_angle = &state.doubleArray[4 + n_seg];
+
+	std::cout << "p_head = (" << p_head[0] << "; " << p_head[1] << ")" << std::endl;
+	std::cout << "v_head = (" << v_head[0] << "; " << v_head[1] << ")" << std::endl;
+	std::string p_s = "p_angle = {";
+	std::string v_s = "v_angle = {";
+	for(size_t i=0; i<n_seg; i++){
+		p_s += std::to_string(p_angle[i]);
+		v_s += std::to_string(v_angle[i]);
+		if(i==n_seg-1){
+			p_s += "}";
+			v_s += "}";
+		} else {
+			p_s += "; ";
+			v_s += "; ";
+		}
+	}
+	std::cout << p_s << std::endl << v_s << std::endl;
+}
+
+void set_parameters()
+{
+	using namespace std;
+	string line;
+	ifstream inFile("parameters.txt");
+
+	if (inFile.is_open()) {
+		while (getline(inFile, line)) {
+	    	stringstream ss(line);
+	    	string varName;
+	    	ss >> varName;
+			if(varName=="n_seg") ss >> n_seg;
+			else if(varName=="max_u") ss >> max_u;
+			else if(varName=="l_i") ss >> l_i;
+			else if(varName=="k") ss >> k;
+			else if(varName=="m_i") ss >> m_i;
+			else if(varName=="h_global") ss >> h_global;
+	    }
+	    inFile.close();
+	}
+	else cout << "Unable to open file"; 
 }
