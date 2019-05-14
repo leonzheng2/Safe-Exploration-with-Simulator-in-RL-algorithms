@@ -15,7 +15,7 @@ from rlglue.utils import TaskSpecVRLGLUE3
 
 ### TODO: V2 version
 
-class SwimmerAgent(Agent):
+class SwimmerARSAgent(Agent):
 
 	freeze = False
 
@@ -224,4 +224,5 @@ class SwimmerAgent(Agent):
 		f.close() 
 
 if __name__=="__main__":
-	AgentLoader.loadAgent(SwimmerAgent())
+	AgentLoader.loadAgent(SwimmerARSAgent())
+	AgentLoader.loadAgent(SwimmerSarsaAgent())

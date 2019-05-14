@@ -6,16 +6,6 @@
 
 #include <rlglue/RL_glue.h> /* RL_ function prototypes and RL-Glue types */
 	
-int whichEpisode=0;
-
-// /* Run One Episode of length maximum cutOff*/
-// void runEpisode(int stepLimit) {        
-//     int terminal=RL_episode(stepLimit);
-// 	printf("Episode %d\t %d steps \t%f total reward\t %d natural end \n",whichEpisode,RL_num_steps(),RL_return(), terminal);
-// 	whichEpisode++;
-// }
-
-
 // Parameters for the experience
 size_t n_it = 10000;
 

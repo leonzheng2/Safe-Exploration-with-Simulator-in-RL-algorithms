@@ -10,3 +10,5 @@ PROJECT (SwimmerEnv)
 
 ADD_EXECUTABLE(TestUpdate TestUpdateState.cpp SwimmerEnvironment.cpp)
 TARGET_LINK_LIBRARIES(TestUpdate rlutils rlglue)
+
+ADD_EXECUTABLE(HelloWorld HelloWorld.cpp)
