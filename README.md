@@ -45,4 +45,4 @@ Please change the parameters in `src/parameters.txt`.
 ### OpenAI Gym
 Contained in `src/openai`.
 
-Using the MuJoCo environment and implementing ASR algorithm.
+Using the MuJoCo environment and implementing ASR algorithm using OpenAI Gym.
