@@ -24,18 +24,15 @@ static observation_t this_observation;
 static observation_t saved_observation;
 static reward_observation_terminal_t this_reward_observation;
 
-/* Used if a message is sent to the environment to use default start states */
-static int default_start_state = 1;
-
 // Parameters
 // TODO put the parameters has an input of the file and don't recompile at each time
-static Vector2d direction(1.0, 0);
-static size_t n_seg;
-static double max_u;
-static double l_i;
-static double k;
-static double m_i;
-static double h_global;
+extern Vector2d direction;
+extern size_t n_seg;
+extern double max_u;
+extern double l_i;
+extern double k;
+extern double m_i;
+extern double h_global;
 
 // Methods
 const char* env_init();

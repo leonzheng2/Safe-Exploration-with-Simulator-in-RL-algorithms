@@ -2,7 +2,6 @@
 
 int main(int argc, char const *argv[])
 {
-
 	n_seg = 2;
 	h_global = 0.01;
 	max_u = 5.;
@@ -36,6 +35,8 @@ int main(int argc, char const *argv[])
 
 	std::cout << "State before update: " << std::endl;
 	print_state(this_observation);
+
+	// std::cout << this_observation.doubleArray[5] << std::endl;
 
 	updateState(this_observation, &this_action);
 

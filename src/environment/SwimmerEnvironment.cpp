@@ -1,5 +1,13 @@
 #include "SwimmerEnvironment.h"
 
+Vector2d direction;
+size_t n_seg;
+double max_u;
+double l_i;
+double k;
+double m_i;
+double h_global;
+
 /*
 	RLGlue methods for environment
 */
@@ -26,14 +34,11 @@ const char* env_init()
 const observation_t *env_start()
 {
 	std::cout << "Starting environment..." << std::endl; 
-	if(default_start_state){
-		// Default position: random
-		for(size_t i=0; i<this_observation.numDoubles; i++){
-			this_observation.doubleArray[i] = 0.0000001 * (double) rand() / (RAND_MAX);
-		}
-	} else {
-		//TODO random positions of the head and angles, initial speed is 0
+	// Default position: random
+	for(size_t i=0; i<this_observation.numDoubles; i++){
+		this_observation.doubleArray[i] = 0.0000001 * (double) rand() / (RAND_MAX);
 	}
+
 	save_state();
 
 	print_state(this_observation);
@@ -67,14 +72,6 @@ void env_cleanup()
 
 const char* env_message(const char * message)
 {
-	/*	Message Description
- 	 * 'set-default-start-state'
-	 * Action: Set flag to do default starting states (the default)
-	 */
-	if(strcmp(message,"set-default-start-state")==0){
-        default_start_state=1;
-        return "Message understood.  Using default start state.";
-    }
     if(strcmp(message, "what is your name?")==0){
     	return "My name is swimmer_environment, C++ edition!";
     }
@@ -313,12 +310,12 @@ void load_state()
 	}
 }
 
-void print_state(const observation_t &state)
+void print_state(const observation_t &state) 
 {
 	Vector2d p_head(state.doubleArray[0], state.doubleArray[1]);
 	Vector2d v_head(state.doubleArray[2], state.doubleArray[3]);
-	double* p_angle = &state.doubleArray[4];
-	double* v_angle = &state.doubleArray[4 + n_seg];
+	const double* p_angle = &state.doubleArray[4];
+	const double* v_angle = &state.doubleArray[4 + n_seg];
 
 	std::cout << "p_head = (" << p_head[0] << "; " << p_head[1] << ")" << std::endl;
 	std::cout << "v_head = (" << v_head[0] << "; " << v_head[1] << ")" << std::endl;
@@ -355,6 +352,13 @@ void set_parameters()
 			else if(varName=="k") ss >> k;
 			else if(varName=="m_i") ss >> m_i;
 			else if(varName=="h_global") ss >> h_global;
+			else if(varName=="direction"){
+				double x;
+				double y;
+				ss >> x;
+				ss >> y;
+				direction = Vector2d(x, y);
+			}
 	    }
 	    inFile.close();
 	}
