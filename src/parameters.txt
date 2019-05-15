@@ -1,0 +1,11 @@
+n_seg 3
+h_global 0.01
+N 1
+b 1
+H 1000
+alpha 0.02
+nu 0.02
+max_u 5.
+l_i 1.
+k 10.
+m_i 1.

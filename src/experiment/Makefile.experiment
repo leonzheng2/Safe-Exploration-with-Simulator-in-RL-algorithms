@@ -1,0 +1,15 @@
+LDFLAGS := -lrlexperiment -lrlutils -lrlgluenetdev
+CFLAGS := -Wall -pedantic 
+DIR := experiment/
+
+all: $(DIR)SwimmerExperiment
+
+$(DIR)SwimmerExperiment: $(DIR)SwimmerExperiment.o 
+	$(CXX) $(DIR)SwimmerExperiment.o   $(LDFLAGS)  -o $(DIR)SwimmerExperiment      
+	rm $(DIR)*.o	
+
+$(DIR)SwimmerExperiment.o: $(DIR)SwimmerExperiment.cpp
+	$(CXX)  $(CFLAGS) -c $(DIR)SwimmerExperiment.cpp -o $(DIR)SwimmerExperiment.o 
+
+clean:
+	rm -rf $(DIR)SwimmerExperiment $(DIR)SwimmerExperiment.exe $(DIR)*.o

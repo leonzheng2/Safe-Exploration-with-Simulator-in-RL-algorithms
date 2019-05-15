@@ -1,0 +1,16 @@
+LDFLAGS :=  -lm -lrlutils -lrlenvironment -lrlgluenetdev
+CFLAGS :=   -Wall -pedantic
+DIR := environment/
+
+all: $(DIR)SwimmerEnvironment
+
+$(DIR)SwimmerEnvironment: $(DIR)SwimmerEnvironment.o 
+	$(CXX)   $(DIR)SwimmerEnvironment.o $(LDFLAGS) -o $(DIR)SwimmerEnvironment      
+	rm $(DIR)*.o	
+
+$(DIR)SwimmerEnvironment.o: $(DIR)SwimmerEnvironment.cpp
+	$(CXX)  $(CFLAGS) -c $(DIR)SwimmerEnvironment.cpp -o $(DIR)SwimmerEnvironment.o 
+
+clean:
+	rm -rf $(DIR)SwimmerEnvironment $(DIR)SwimmerEnvironment.exe $(DIR)*.o
+
