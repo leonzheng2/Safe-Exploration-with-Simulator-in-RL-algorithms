@@ -27,7 +27,7 @@ Run `make` in `src/` directory.
 ### RLGlue Agent
 Contained in `src/agent/`.
 
-Written in Python. Implementation of ASR algorithm, adapted to the RLGlue framework.
+Written in Python. Implementation of ARS algorithm, adapted to the RLGlue framework.
 
 ### RLGlue Environment
 Contained in `src/environment/`.
@@ -37,7 +37,7 @@ Written in C++. Using the model from Remy Coulom's thesis: https://www.remi-coul
 ### RLGlue Experiment
 Contained in `src/experiment/`.
 
-Written in C++. Printing rewards after each policy update. Run `./SwimmerExperiment N_IT` with `N_IT` the number of iterations for the ASR algorithm.
+Written in C++. Printing rewards after each policy update. Run `./SwimmerExperiment N_IT` with `N_IT` the number of iterations for the ARS algorithm.
 
 ### Parameters
 Please change the parameters in `src/parameters.txt`.
@@ -45,4 +45,4 @@ Please change the parameters in `src/parameters.txt`.
 ### OpenAI Gym
 Contained in `src/openai/`.
 
-Using the MuJoCo environment and implementing ASR algorithm using OpenAI Gym.
+Using the MuJoCo environment and implementing ARS algorithm using OpenAI Gym.
