@@ -84,7 +84,7 @@ const char* env_message(const char * message)
     	return "this_observation has the value of saved_observation";
     }
     if(strcmp(message, "set parameters")==0){
-    	set_parameters();
+    	set_parameters("../parameters.txt");
     	static std::string s = "Environment parameters are: n_seg=" + std::to_string(n_seg) + "; max_u=" + std::to_string(max_u) + "; l_i=" + std::to_string(l_i) + "; k=" + std::to_string(k) + "; m_i=" + std::to_string(m_i) + "; h_global=" + std::to_string(h_global);
     	std::cout << s << std::endl;
     	return s.c_str();
@@ -335,13 +335,14 @@ void print_state(const observation_t &state)
 	std::cout << p_s << std::endl << v_s << std::endl;
 }
 
-void set_parameters()
+void set_parameters(const std::string &param_file)
 {
 	using namespace std;
 	string line;
-	ifstream inFile("../parameters.txt");
+	ifstream inFile(param_file);
 
 	if (inFile.is_open()) {
+		cout << "File is opened" << endl;
 		while (getline(inFile, line)) {
 	    	stringstream ss(line);
 	    	string varName;

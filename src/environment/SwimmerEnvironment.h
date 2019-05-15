@@ -50,4 +50,4 @@ int check_terminal(const observation_t& state);
 void save_state();
 void load_state();
 void print_state(const observation_t &state);
-void set_parameters();
+void set_parameters(const std::string &param_file);
