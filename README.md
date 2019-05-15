@@ -20,22 +20,22 @@ self.ts = ts.decode()
 ```
 
 ## Build
-Run `make` in `/src` directory.
+Run `make` in `src/` directory.
 
 ## Project content
 
 ### RLGlue Agent
-Contained in `/src/agent`.
+Contained in `src/agent/`.
 
 Written in Python. Implementation of ASR algorithm, adapted to the RLGlue framework.
 
 ### RLGlue Environment
-Contained in `/src/environment`.
+Contained in `src/environment/`.
 
 Written in C++. Using the model from Remy Coulom's thesis: https://www.remi-coulom.fr/Thesis/
 
 ### RLGlue Experiment
-Contained in `/src/experiment`.
+Contained in `src/experiment/`.
 
 Written in C++. Printing rewards after each policy update. Run `./SwimmerExperiment N_IT` with `N_IT` the number of iterations for the ASR algorithm.
 
@@ -43,6 +43,6 @@ Written in C++. Printing rewards after each policy update. Run `./SwimmerExperim
 Please change the parameters in `src/parameters.txt`.
 
 ### OpenAI Gym
-Contained in `src/openai`.
+Contained in `src/openai/`.
 
 Using the MuJoCo environment and implementing ASR algorithm using OpenAI Gym.
