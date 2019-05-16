@@ -7,7 +7,7 @@
 #include <rlglue/RL_glue.h> /* RL_ function prototypes and RL-Glue types */
 	
 // Parameters for the experience
-size_t n_it = 10000;
+size_t n_it = 1000;
 
 // Parameters from the agent
 size_t N;
@@ -72,14 +72,15 @@ void runOneTrainingIteration(size_t current_it)
 		stepResponse=RL_step();
 	}
 	RL_agent_message("freeze training");
+	RL_env_message("load state");
 	for(size_t i=0; i<H; i++){
-		if(i%H == 0){
-			RL_env_message("load state");
-		}
 		stepResponse=RL_step();
 	}
-	std::cout << "Reward for one rollout with policy at iteration " << current_it << ": " << stepResponse->reward << std::endl;
-	results << "Reward for one rollout with policy at iteration " << current_it << ": " << stepResponse->reward << "\n";
+	responseMessage = RL_agent_message("get total_reward");
+	const double total_reward = std::stod(responseMessage);
+
+	std::cout << "Reward for one rollout with policy at iteration " << current_it << ": " << total_reward << std::endl;
+	results << "Reward for one rollout with policy at iteration " << current_it << ": " << total_reward << "\n";
 }
 
 void run_training()

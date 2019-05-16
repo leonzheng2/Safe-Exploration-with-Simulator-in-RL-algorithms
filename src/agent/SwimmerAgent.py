@@ -45,7 +45,7 @@ class SwimmerARSAgent(Agent):
 		# n_seg-1 action variables
 		# 2*(2+n_seg) state variables
 		# A_0 is the head of the swimmer, 2D point; and there are n_seg angles. We want also the derivatives.
-		self.deltas = [np.zeros((self.n_seg-1, 2*(2+self.n_seg))) for i in range(self.N)]
+		self.deltas = [2*np.zeros((self.n_seg-1, 2*(2+self.n_seg)))-1 for i in range(self.N)]
 		self.deltaPolicies = [self.agentPolicy for i in range(2*self.N)] # 2N policies for the 2N rollouts
 		self.rewards = [0. for i in range(2*self.N)] # Rewards obtained at the end of the 2N rollouts
 		self.count = 0 # Counter which increments only after one agent step
@@ -60,6 +60,7 @@ class SwimmerARSAgent(Agent):
 		self.initial_state = copy.deepcopy(observation) # Fix the observation at the begining of the iteration
 		for i in range(len(self.rewards)):
 			self.rewards[i] = 0. # Reset rewards
+		self.total_reward = 0.
 
 		thisPolicy = self.fix_policy() # Select the policy for this agent step
 		thisAction = self.select_action(thisPolicy, observation) # Select action given the policy and the observation
@@ -70,17 +71,20 @@ class SwimmerARSAgent(Agent):
 	def agent_step(self,reward, observation):
 		assert len(observation.doubleArray) == 2*(2+self.n_seg)
 		thisObservation = copy.deepcopy(observation) # In general case, the observation used to select the action is the last observation given by the environment
+		self.total_reward += reward
 
 		if not self.freeze:
 			# New rollout
 			if self.count%self.H == 0:
 				idx = (self.count//self.H - 1)%(2*self.N) 
-				self.rewards[idx] = reward # Update reward. The current reward is the one received at the end of the previous rollout.
+				self.rewards[idx] = self.total_reward # Update reward. The current reward is the one received at the end of the previous rollout.
+				self.total_reward = 0.
 				thisObservation = copy.deepcopy(self.initial_state) # At the begining of a new rollout, we start again with the initial observation.
 
 		else:
 			# New rollout
 			if self.ev_count == 0:
+				self.total_reward = 0.
 				thisObservation = copy.deepcopy(self.initial_state) # At the begining of a new rollout, we start again with the initial observation.
 
 		thisPolicy = self.fix_policy() # Select the policy for this agent step
@@ -130,6 +134,9 @@ class SwimmerARSAgent(Agent):
 			s = f"Agent parameters are: N={self.N}; b={self.b}, H={self.H}, alpha={self.alpha}, nu={self.nu}"
 			print(s)
 			return s
+		if inMessage=="get total_reward":
+			print(f"Total reward is: {self.total_reward}")
+			return str(self.total_reward)
 		else:
 			return "I don't know how to respond to your message";
 
