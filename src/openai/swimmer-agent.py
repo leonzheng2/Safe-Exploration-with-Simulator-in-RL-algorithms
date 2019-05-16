@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 @ray.remote
 class SwimmerAgent():
 
-    def __init__(self, n_it=1000, N=1, b=1, H=2000, alpha=0.02, nu=0.02):
+    def __init__(self, n_it=1000, N=1, b=1, H=1000, alpha=0.02, nu=0.02):
         self.env = gym.make('Swimmer-v2') # Environment
         self.policy = np.zeros((self.env.action_space.shape[0], self.env.observation_space.shape[0])) # Linear policy
         self.n_it = n_it
@@ -34,19 +34,20 @@ class SwimmerAgent():
 
     def rollout(self, policy):
         """
-        Doing self.H steps following the given policy, and return the final reward.
+        Doing self.H steps following the given policy, and return the final total reward.
         :param policy: matrix
         :return: float
         """
-        reward = 0
+        total_reward = 0
         observation = self.env.reset()
         for t in range(self.H):
             # self.env.render()
             action = self.select_action(policy, observation)
             observation, reward, done, info = self.env.step(action)
+            total_reward += reward
             if done:
-                return reward
-        return reward
+                return total_reward
+        return total_reward
 
     def sort_directions(self, deltas, rewards):
         """
@@ -112,12 +113,12 @@ class SwimmerAgent():
 if __name__ == '__main__':
     ray.init()
     # Hyperparameters
-    alphas = [0.03, 0.04, 0.05]
-    nus = [0.03, 0.02, 0.01]
+    alphas = [0.02]
+    nus = [0.02]
     r_graphs = []
     for alpha in alphas:
         for nu in nus:
-            agent = SwimmerAgent.remote(alpha=alpha, nu=nu)
+            agent = SwimmerAgent.remote(n_it=500, alpha=alpha, nu=nu)
             r_graphs.append((alpha, nu, agent.runTraining.remote()))
 
     # Plot graphs
