@@ -69,13 +69,13 @@ class SwimmerAgent():
         :return: void, self.policy is updated
         """
         used_rewards = []
-        for i in range(self.b):
-            used_rewards += [rewards[2*order[i]], rewards[2*order[i]+1]]
+        for i in order:
+            used_rewards += [rewards[2*i], rewards[2*i+1]]
         sigma_r = np.std(used_rewards)
 
         grad = np.zeros(self.policy.shape)
-        for i in range(self.b):
-            grad += (rewards[2*order[i]] - rewards[2*order[i]+1])*deltas[order[i]]
+        for i in order:
+            grad += (rewards[2*i] - rewards[2*i+1])*deltas[i]
         grad /= (self.b*sigma_r)
 
         self.policy += self.alpha*grad

@@ -27,34 +27,36 @@ class SwimmerARSAgent(Agent):
 
 		print("Reading taskSpec: " + taskSpec.decode())
 
-		# TODO Parse taskSpec
+		# Parse taskSpec
 		TaskSpec = TaskSpecVRLGLUE3.TaskSpecParser(taskSpec)
 		if TaskSpec.valid:
 			print("Parsing task spec...")
-			self.n_seg = len(TaskSpec.getDoubleActions())+1
 			self.max_u = TaskSpec.getDoubleActions()[0][1]
+			self.n_action = len(TaskSpec.getDoubleActions())
+			self.n_obs = len(TaskSpec.getDoubleObservations())
+			print(f"Number of actions: {self.n_action}")
+			print(f"Number of obs: {self.n_obs}")
 			print("Task spec parsed!")
 		else:
 			print("Task Spec could not be parsed: "+taskSpecString)
 
 		print("Initialization of training...")
+
 		# Variables
 		self.initial_state = Observation() # Iteration initial state: fixed during one iteration
 		self.states = [] # States encountered from the start of the training
-		self.agentPolicy = np.zeros((self.n_seg-1, 2*(2+self.n_seg)))
-		# n_seg-1 action variables
-		# 2*(2+n_seg) state variables
-		# A_0 is the head of the swimmer, 2D point; and there are n_seg angles. We want also the derivatives.
-		self.deltas = [2*np.zeros((self.n_seg-1, 2*(2+self.n_seg)))-1 for i in range(self.N)]
+		self.agentPolicy = np.zeros((self.n_action, self.n_obs))
+		self.deltas = [2*np.zeros((self.n_action, self.n_obs))-1 for i in range(self.N)]
 		self.deltaPolicies = [self.agentPolicy for i in range(2*self.N)] # 2N policies for the 2N rollouts
 		self.rewards = [0. for i in range(2*self.N)] # Rewards obtained at the end of the 2N rollouts
 		self.count = 0 # Counter which increments only after one agent step
 		self.ev_count = 0 # Counter for evaluation
+		
 		print("Training initialized!")
 
 	def agent_start(self,observation):
 		print("Starting agent...")
-		assert len(observation.doubleArray) == 2*(2+self.n_seg)
+		assert len(observation.doubleArray) == self.n_obs
 
 		self.sample_deltas() # Choose the deltas directions
 		self.initial_state = copy.deepcopy(observation) # Fix the observation at the begining of the iteration
@@ -69,7 +71,7 @@ class SwimmerARSAgent(Agent):
 		return thisAction
 	
 	def agent_step(self,reward, observation):
-		assert len(observation.doubleArray) == 2*(2+self.n_seg)
+		assert len(observation.doubleArray) == self.n_obs
 		thisObservation = copy.deepcopy(observation) # In general case, the observation used to select the action is the last observation given by the environment
 		self.total_reward += reward
 
