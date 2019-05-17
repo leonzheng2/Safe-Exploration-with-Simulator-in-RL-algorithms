@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 @ray.remote
 class SwimmerAgent():
 
-    def __init__(self, n_it=1000, N=1, b=1, H=1000, alpha=0.02, nu=0.02):
+    def __init__(self, n_it=1000, N=1, b=1, H=1000, alpha=0.02, nu=0.02, seed=None):
         self.env = gym.make('Swimmer-v2') # Environment
         self.policy = np.zeros((self.env.action_space.shape[0], self.env.observation_space.shape[0])) # Linear policy
         self.n_it = n_it
@@ -20,6 +20,8 @@ class SwimmerAgent():
         self.H = H
         self.alpha = alpha
         self.nu = nu
+        self.seed = seed
+        np.random.seed(self.seed)
 
     def select_action(self, policy, observation):
         """
@@ -105,16 +107,19 @@ class SwimmerAgent():
             r = self.rollout(self.policy)
             rewards.append(r)
             if j%(self.n_it//10) == 0:
-                print(f"------ alpha={self.alpha}; nu={self.nu} ------")
+                print(f"------ alpha={self.alpha}; nu={self.nu}; seed={self.seed} ------")
                 print(f"Iteration {j}: {r}")
         self.env.close()
         return np.array(rewards)
 
-if __name__ == '__main__':
-    ray.init()
+def plot_hyperparameters(alphas, nus):
+    """
+    Run training using several configurations of alpha and nu
+    :param alphas: array
+    :param nus: array
+    :return: plot and save graphs
+    """
     # Hyperparameters
-    alphas = [0.02]
-    nus = [0.02]
     r_graphs = []
     for alpha in alphas:
         for nu in nus:
@@ -131,3 +136,24 @@ if __name__ == '__main__':
     plt.ylabel("Reward")
     plt.savefig("../../results/ars_hyperparameters-.png")
     plt.show()
+
+def plot_random_seed(n_seed, alpha=0.02, nu=0.02):
+    # Seeds
+    r_graphs = []
+    for i in range(n_seed):
+        agent = SwimmerAgent.remote(n_it=500, seed=i, alpha=alpha, nu=nu)
+        r_graphs.append(agent.runTraining.remote())
+
+    # Plot graphs
+    for rewards in r_graphs:
+        rewards = ray.get(rewards)
+        plt.plot(rewards)
+    plt.title(f"n_seed={n_seed}, alpha={alpha}, nu={nu}")
+    plt.xlabel("Iteration")
+    plt.ylabel("Reward")
+    plt.savefig("../../results/ars_random_seeds-.png")
+    plt.show()
+
+if __name__ == '__main__':
+    ray.init()
+    plot_random_seed(50)
