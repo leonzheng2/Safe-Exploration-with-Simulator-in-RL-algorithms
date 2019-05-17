@@ -120,7 +120,6 @@ void updateState(observation_t &state, const action_t* action)
 	// std::cout << "Accelerations computed" << std::endl;
 
 	// Semi-implicit Euler
-	//TODO ISSUE what is the time interval??
 	const double h = h_global;
 	semi_implicit_euler(h, p_head, p_angle, v_head, v_angle, a_head, a_angle);
 	// std::cout << "Semi-implicit Euler done" << std::endl;

@@ -1,6 +1,6 @@
-n_seg 3
+n_seg 7
 direction 1.0 0.
-h_global 0.01
+h_global 0.0025
 N 1
 b 1
 H 1000
