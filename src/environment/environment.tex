@@ -1,0 +1,117 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+
+\title{Swimmer Environment - RLGlue Implementation}
+\author{leon.zheng }
+\date{May 2019}
+
+\usepackage{natbib}
+\usepackage{graphicx}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+
+\begin{document}
+
+\maketitle
+
+\section{State}
+
+In the current implementation of the environment, the state is stored in a double array $l$ of size $2n+4$, where $n$ is the number of segments.
+\begin{itemize}
+    \item $A_0$, position of the swimmer head, is stored in $l_0, l_1$.
+    \item $\dot{A_0}$, velocity of the swimmer head, is stored in $l_2, l_3$.
+    \item $\theta_i$, the angle $i$ at the beginning of the segment $i$, is stored in $l_{3+i}$, for $i \in \{1, ..., n\}$.
+    \item $\dot{\theta}_i$, the first derivative of the angle $i$ at the beginning of the segment $i$, is stored in $l_{3+n+i}$, for $i \in \{1, ..., n\}$.
+\end{itemize}
+
+\section{Solving dynamics equations}
+
+\subsection{Variables}
+\begin{itemize}
+    \item $n$ is the number of segments.
+    \item $\theta_i$ is the angle $i$ at the beginning of the segment $i$, for $i \in \{1, ..., n\}$. See the figure in Remy's paper.
+    \item $G_i$ is the mass center of the segment $i$, for $i \in \{1, ..., n\}$.
+\end{itemize}
+
+\subsection{Unknowns}
+The goal is to compute the following unknowns:
+\begin{itemize}
+  \item $n$ unknowns of dimension 1: $\ddot{\theta_1}, \ddot{\theta_2}, ... , \ddot{\theta_n}$
+  \item $n+1$ unknowns of dimension 2: $\vec{f_0}, \vec{f_1}, ..., \vec{f_n}$
+  \item $n$ unknowns of dimension 2: $\ddot{G_1}, \ddot{G_2}, ..., \ddot{G_n}$
+\end{itemize}
+
+Let $X \in \mathbb{R}^{5n+2}$ be the unknown vector encoding all the unknown variables. We index the components of this vector from $0$ to $5n+1$:
+\begin{itemize}
+  \item $\ddot{\theta_i}$ corresponds to $X[i-1]$ for $i \in \{1, ..., n\}$
+  \item $\vec{f_i}$ corresponds to     
+    $\begin{pmatrix}
+        X[n+2i] \\
+        X[n+2i+1] 
+    \end{pmatrix}$ for $i \in \{0, ..., n\}$
+  \item $\ddot{G_i}$ corresponds to 
+    $\begin{pmatrix}
+        X[3n+2i] \\
+        X[3n+2i+1] 
+    \end{pmatrix}$ for $i \in \{1, ..., n\}$
+\end{itemize}
+
+\subsection{Equations}
+Since $X \in \mathbb{R}^{5n+2}$, we need to write $5n+2$ equations. From Remy's model in part B.4.3, we have the following equations.
+
+\begin{itemize}
+    \item Equations $0$ to $n-1$: for $i \in \{1, ..., n\}$
+    \begin{equation}
+        m_i \frac{l_i}{12} \ddot{\theta_i} - l_i \left(  \cos\theta_i (f_i^y + f_{i+1}^y) - \sin\theta_i (f_i^x + f_{i+1}^x) \right)= \mathcal{M}_i - u_i + u_{i-1}
+    \end{equation}
+    
+    \item Equations $n$ to $3n+3$: for $i \in \{1, ..., n\}$:
+    \begin{equation}
+        \vec{f_0} = 0
+    \end{equation}
+    \begin{equation}
+        \vec{f_{i-1}} - \vec{f_i} + m_i \ddot{G_i} = \vec{F_i}
+    \end{equation}
+    \begin{equation}
+        \vec{f_n} = 0
+    \end{equation}
+    
+    \item Equations $3n+4$ to $5n+1$: for $i \in \{1, ..., n-1\}$:
+    \begin{equation}
+    \begin{split}
+    -\ddot{G}_{i+1} + \ddot{G}_{i} + \frac{l_i}{2} \ddot{\theta}_{i} \begin{pmatrix}
+        -\sin \theta_{i} \\
+        \cos \theta_{i} 
+    \end{pmatrix} + \\ \frac{l_i}{2} \ddot{\theta}_{i+1} \begin{pmatrix}
+        -\sin \theta_{i+1} \\
+        \cos \theta_{i+1} 
+    \end{pmatrix} =  
+    & \frac{l_i}{2} \dot{\theta}_{i}^2 \begin{pmatrix}
+        \cos \theta_{i} \\
+        \sin \theta_{i} 
+    \end{pmatrix} + \frac{l_i}{2} \dot{\theta}_{i+1}^2 \begin{pmatrix}
+        \cos \theta_{i+1} \\
+        \sin \theta_{i+1} 
+    \end{pmatrix}
+    \end{split}
+    \end{equation}
+    
+    which is the second derivative of the following equations:
+    \begin{equation}
+        G_{i+1} = G_i + \frac{l_i}{2} \begin{pmatrix}
+        \cos \theta_{i} \\
+        \sin \theta_{i} 
+    \end{pmatrix} + \frac{l_i}{2} \begin{pmatrix}
+        \cos \theta_{i+1} \\
+        \sin \theta_{i+1} 
+    \end{pmatrix}
+    \end{equation}
+
+\end{itemize}
+
+Using the same indices of the unknowns as $X$, left members of the previous equations are stored in $A \in  \mathbb{R}^{(5n+2) \times (5n+2)}$, right members of the previous equations are stored in $B \in \mathbb{R}^{5n+2}$.
+
+Thus, we have the relation $AX = B$, and solving the linear system is done by using $X = A^{-1} B$.
+
+\end{document}
+
