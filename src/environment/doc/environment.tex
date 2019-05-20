@@ -29,43 +29,43 @@ In the current implementation of the environment, the state is stored in a doubl
 \subsection{Variables}
 \begin{itemize}
     \item $n$ is the number of segments.
-    \item $\theta_i$ is the angle $i$ at the beginning of the segment $i$, for $i \in \{1, ..., n\}$. See the figure in Remy's paper.
+    \item $l_i$ is the length of segment $i$.
+    \item $\theta_i$ is the angle $i$ at the beginning of the segment $i$, for $i \in \{1, ..., n\}$. See the figure in Remy's paper, Annex B.4 \cite{Coulom-2002a}.
     \item $G_i$ is the mass center of the segment $i$, for $i \in \{1, ..., n\}$.
 \end{itemize}
 
 \subsection{Unknowns}
 The goal is to compute the following unknowns:
 \begin{itemize}
-  \item $n$ unknowns of dimension 1: $\ddot{\theta_1}, \ddot{\theta_2}, ... , \ddot{\theta_n}$
-  \item $n+1$ unknowns of dimension 2: $\vec{f_0}, \vec{f_1}, ..., \vec{f_n}$
-  \item $n$ unknowns of dimension 2: $\ddot{G_1}, \ddot{G_2}, ..., \ddot{G_n}$
+  \item $n$ unknowns of dimension 1: $\ddot{\theta_1}, \ddot{\theta_2}, ... , \ddot{\theta_n} \in \mathbb{R}$
+  \item $n+1$ unknowns of dimension 2: $\vec{f_0}, \vec{f_1}, ..., \vec{f_n} \in \mathbb{R}^2$
+  \item $n$ unknowns of dimension 2: $\ddot{G_1}, \ddot{G_2}, ..., \ddot{G_n} \in \mathbb{R}^2$
 \end{itemize}
 
 Let $X \in \mathbb{R}^{5n+2}$ be the unknown vector encoding all the unknown variables. We index the components of this vector from $0$ to $5n+1$:
 \begin{itemize}
-  \item $\ddot{\theta_i}$ corresponds to $X[i-1]$ for $i \in \{1, ..., n\}$
-  \item $\vec{f_i}$ corresponds to     
+  \item $\ddot{\theta_i}$ corresponds to $X[i-1]$ for $i \in \{1, ..., n\}$.
+  \item $\vec{f_i}=\begin{pmatrix} f_i^x \\ f_i^y \end{pmatrix}$ corresponds to     
     $\begin{pmatrix}
         X[n+2i] \\
         X[n+2i+1] 
-    \end{pmatrix}$ for $i \in \{0, ..., n\}$
+    \end{pmatrix}$ for $i \in \{0, ..., n\}$.
   \item $\ddot{G_i}$ corresponds to 
     $\begin{pmatrix}
         X[3n+2i] \\
         X[3n+2i+1] 
-    \end{pmatrix}$ for $i \in \{1, ..., n\}$
+    \end{pmatrix}$ for $i \in \{1, ..., n\}$.
 \end{itemize}
 
 \subsection{Equations}
-Since $X \in \mathbb{R}^{5n+2}$, we need to write $5n+2$ equations. From Remy's model in part B.4.3, we have the following equations.
+Since $X \in \mathbb{R}^{5n+2}$, we need to write $5n+2$ equations. From Remy's model \cite{Coulom-2002a} in Annex B.4.3, we have the following equations.
 
 \begin{itemize}
-    \item Equations $0$ to $n-1$: for $i \in \{1, ..., n\}$
+    \item Equations $0$ to $n-1$, for $i \in \{1, ..., n\}$:
     \begin{equation}
         m_i \frac{l_i}{12} \ddot{\theta_i} - \frac{l_i}{2} \left(  \cos\theta_i (f_i^y + f_{i+1}^y) - \sin\theta_i (f_i^x + f_{i+1}^x) \right)= \mathcal{M}_i - u_i + u_{i-1}
     \end{equation}
-    
-    \item Equations $n$ to $3n+3$: for $i \in \{1, ..., n\}$:
+    \item Equations $n$ to $3n+3$, for $i \in \{1, ..., n\}$:
     \begin{equation}
         \vec{f_0} = 0
     \end{equation}
@@ -76,7 +76,7 @@ Since $X \in \mathbb{R}^{5n+2}$, we need to write $5n+2$ equations. From Remy's 
         \vec{f_n} = 0
     \end{equation}
     
-    \item Equations $3n+4$ to $5n+1$: for $i \in \{1, ..., n-1\}$:
+    \item Equations $3n+4$ to $5n+1$, for $i \in \{1, ..., n-1\}$:
     \begin{equation}
     \begin{split}
     -\ddot{G}_{i+1} + \ddot{G}_{i} + \frac{l_i}{2} \ddot{\theta}_{i} \begin{pmatrix}
@@ -113,4 +113,6 @@ Using the same indices of the unknowns as $X$, left members of the previous equa
 
 Thus, we have the relation $AX = B$, and solving the linear system is done by using $X = A^{-1} B$.
 
+\bibliography{reference}{}
+\bibliographystyle{plain}
 \end{document}
