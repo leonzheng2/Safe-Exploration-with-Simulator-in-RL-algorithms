@@ -1,3 +1,0 @@
-/home/leon/Documents/rl-task/test/build/CMakeFiles/rebuild_cache.dir
-/home/leon/Documents/rl-task/test/build/CMakeFiles/TestUpdate.dir
-/home/leon/Documents/rl-task/test/build/CMakeFiles/edit_cache.dir

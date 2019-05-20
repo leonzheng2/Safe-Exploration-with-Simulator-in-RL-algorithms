@@ -1,1 +1,0 @@
-/usr/bin/c++    -rdynamic CMakeFiles/TestUpdate.dir/TestUpdateState.cpp.o CMakeFiles/TestUpdate.dir/home/leon/Documents/rl-task/src/environment/SwimmerEnvironment.cpp.o  -o TestUpdate -lrlutils -lrlglue 
