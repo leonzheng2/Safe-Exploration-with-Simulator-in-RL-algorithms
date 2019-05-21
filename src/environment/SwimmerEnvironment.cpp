@@ -179,7 +179,7 @@ void compute_accelerations(const std::vector<double> &torque, const Vector2d p_h
 	VectorXd B = VectorXd::Zero(5*n_seg+2);
 
 	// Dynamic equations: lines 0 to n_seg-1
-	for (size_t i=1; i<n_seg+1; i++) { // angles..
+	for (size_t i = 1; i <= n_seg; i++) { // angles..
 		A(i-1, i-1)             = m_i*l_i/12;
 		A(i-1, n_seg + 2*i + 0) = +l_i/2*sin(p_angle[i-1]); // f_(i, x)
 		A(i-1, n_seg + 2*i + 2) = +l_i/2*sin(p_angle[i-1]); // f_(i+1, x)
@@ -199,22 +199,22 @@ void compute_accelerations(const std::vector<double> &torque, const Vector2d p_h
 	A(n_seg, n_seg) = 1;
 	A(n_seg+1, n_seg+1) = 1;
 	// lines n_seg+2 to 3*n_seg+1
-	for (size_t i = 1; i < n_seg+1; i++) {
+	for (size_t i = 1; i <= n_seg; i++) {
 		// Equation on x/y direction (x:d=0, y:d=1)
 		for (int d = 0; d < 2; d++) {
-			A(n_seg+2 + 2*(i-1) + d, d + n_seg + 2*(i-1)) = +1; //f_(i-1,x)
-			A(n_seg+2 + 2*(i-1) + d, d + n_seg + 2*i)     = -1; //f_(i,x)
-			A(n_seg+2 + 2*(i-1) + d, d + 3*n_seg + 2*i)   = m_i; //G.._(i,x)
+			A(n_seg + 2*i + d, d + n_seg + 2*(i-1)) = +1; //f_(i-1,x)
+			A(n_seg + 2*i + d, d + n_seg + 2*i)     = -1; //f_(i,x)
+			A(n_seg + 2*i + d, d + 3*n_seg + 2*i)   = m_i; //G.._(i,x)
 
-			B(n_seg+2 + 2*(i-1) + d) = F_friction[i-1](d);
+			B(n_seg + 2*i + d) = F_friction[i-1](d);
 		}
 	}
 	// lines 3*n_seg+2 to 3*n_seg+3
-	A(3*n_seg+2, 3*n_seg) = 1;
+	A(3*n_seg+2, 3*n_seg)   = 1;
 	A(3*n_seg+3, 3*n_seg+1) = 1;
 
 	// Equations on G.._i: lines 3*n_seg+4 to 5*n_seg+1
-	for (size_t i=1; i<n_seg; i++) {
+	for (size_t i = 1; i < n_seg; i++) {
 		// Equation on x/y direction (x:d=0, y:d=1)
 		for (int d = 0; d < 2; d++) {
 			A(3*n_seg+4 + 2*(i-1) + d, d + 3*n_seg+2*i)     = +1; //G.._(i,x)
