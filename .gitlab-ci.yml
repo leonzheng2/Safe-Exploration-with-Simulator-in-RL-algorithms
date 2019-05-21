@@ -1,0 +1,49 @@
+build:
+    image: gcc
+    stage: build
+    script:
+        - wget https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/rl-glue-ext/rlglue-3.04.tar.gz
+        - tar -xzf rlglue-3.04.tar.gz
+        - (cd rlglue-3.04 &&  ./configure && make && make install)
+        - wget https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/rl-glue-ext/c-codec-2.0.tar.gz
+        - tar -xzf c-codec-2.0.tar.gz
+        - (cd c-codec-2.0 && ./configure && make && make install)
+        - (cd src; make)
+
+test:
+    image: gcc
+    stage: test
+    script:
+        - wget https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/rl-glue-ext/rlglue-3.04.tar.gz
+        - tar -xzf rlglue-3.04.tar.gz
+        - (cd rlglue-3.04 &&  ./configure && make && make install)
+        - wget https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/rl-glue-ext/c-codec-2.0.tar.gz
+        - tar -xzf c-codec-2.0.tar.gz
+        - (cd c-codec-2.0 && ./configure && make && make install)
+        - echo "wget https://github.com/Kitware/CMake/releases/download/v3.14.3/cmake-3.14.3.tar.gz"
+        - echo tar -xzf cmake-3.14.3.tar.gz
+        - echo "(cd cmake-3.14.3; ./bootstrap; make && make install)"
+        - (cd src; make)
+
+doc:
+    image: paperist/alpine-texlive-ja
+    stage: test
+    script:
+        - (cd src/environment/doc &&
+           platex environment.tex &&
+           platex environment.tex &&
+           pbibtex environment &&
+           platex environment.tex &&
+           platex environment.tex &&
+           dvipdfmx environment)
+    artifacts:
+        paths:
+            - src/*/doc/*.pdf
+
+pylint:
+   image: iwane/pyflake8
+   stage: test
+   script:
+       - flake8 --ignore=E111,E114,E402,H233,D400,D203,I100 --exclude=__init__.py */*.py */*/*.py
+
+
