@@ -246,7 +246,7 @@ void compute_accelerations(const std::vector<double> &torque, const Vector2d p_h
 	for(size_t i=0; i<n_seg; i++){
 		a_angle.push_back(X(i));
 	}
-	a_head = Vector2d(X(3*n_seg+2), X(3*n_seg+3)) - l_i/2*(a_angle[0]*Vector2d(-sin(p_angle[0]), cos(p_angle[0])) - pow(v_angle[0],2)*Vector2d(cos(p_angle[0]), sin(p_angle[1])));
+	a_head = Vector2d(X(3*n_seg+2), X(3*n_seg+3)) - l_i/2*(a_angle[0]*Vector2d(-sin(p_angle[0]), cos(p_angle[0])) - pow(v_angle[0],2)*Vector2d(cos(p_angle[0]), sin(p_angle[0])));
 }
 
 void semi_implicit_euler(double h, Vector2d& p_head, std::vector<double> &p_angle, Vector2d& v_head, std::vector<double> &v_angle, 
