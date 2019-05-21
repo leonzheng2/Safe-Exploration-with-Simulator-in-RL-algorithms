@@ -12,7 +12,7 @@ double h_global;
 	RLGlue methods for environment
 */
 const char* env_init()
-{    
+{
 	std::cout << "Initialize environment" << std::endl;
 	/* Allocate the observation variable */
 	const int numVar = 2*(2+n_seg); // A_0 is the head of the swimmer, 2D point; and there are n_seg angles. We want also the derivatives.
@@ -27,13 +27,13 @@ const char* env_init()
 	this_reward_observation.terminal=0;
 
 	static std::string task_spec_string = "VERSION RL-Glue-3.0 PROBLEMTYPE continuing DISCOUNTFACTOR 0.9 OBSERVATIONS DOUBLES (" + std::to_string(2*(2+n_seg)) + " UNSPEC UNSPEC) ACTIONS DOUBLES (" + std::to_string(n_seg-1) + " " + std::to_string(-max_u) + " " + std::to_string(max_u) + ") REWARDS (UNSPEC UNSPEC) EXTRA SwimmerEnvironment(C++) by Leon Zheng";
-	
+
 	return task_spec_string.c_str();
 }
 
 const observation_t *env_start()
 {
-	std::cout << "Starting environment..." << std::endl; 
+	std::cout << "Starting environment..." << std::endl;
 	// Default position: random
 	for(size_t i=0; i<this_observation.numDoubles; i++){
 		// this_observation.doubleArray[i] = 0.0000001 * (double) rand() / (RAND_MAX);
@@ -137,14 +137,14 @@ void updateState(observation_t &state, const action_t* action)
 	// std::cout << "New state returned" << std::endl;
 }
 
-void compute_accelerations(const std::vector<double> &torque, const Vector2d p_head, const Vector2d v_head, const std::vector<double> &p_angle, const std::vector<double> &v_angle, 
+void compute_accelerations(const std::vector<double> &torque, const Vector2d p_head, const Vector2d v_head, const std::vector<double> &p_angle, const std::vector<double> &v_angle,
 							Vector2d &a_head, std::vector<double> &a_angle)
 {
 	// Computes direction unit vectors
 	std::vector<Vector2d> p_i;
 	std::vector<Vector2d> n_i;
-	for(size_t i=0; i<n_seg; i++){
-		p_i.push_back(Vector2d(cos(p_angle[i]), sin(p_angle[i])));
+	for (size_t i=0; i<n_seg; i++) {
+		p_i.push_back(Vector2d( cos(p_angle[i]), sin(p_angle[i])));
 		n_i.push_back(Vector2d(-sin(p_angle[i]), cos(p_angle[i])));
 	}
 
@@ -153,7 +153,7 @@ void compute_accelerations(const std::vector<double> &torque, const Vector2d p_h
 	std::vector<Vector2d> v_points;
 	p_points.push_back(p_head);
 	v_points.push_back(v_head);
-	for(size_t i=0; i<n_seg; i++){
+	for (size_t i=0; i<n_seg; i++) {
 		p_points.push_back(p_points[i] + l_i*p_i[i]);
 		v_points.push_back(v_points[i] + l_i*v_angle[i]*n_i[i]);
 	}
@@ -161,7 +161,7 @@ void compute_accelerations(const std::vector<double> &torque, const Vector2d p_h
 	// And also for the mass centers
 	std::vector<Vector2d> p_center;
 	std::vector<Vector2d> v_center;
-	for(size_t i=0; i<n_seg; i++){
+	for (size_t i=0; i<n_seg; i++) {
 		p_center.push_back((p_points[i]+p_points[i+1])/2);
 		v_center.push_back((v_points[i]+v_points[i+1])/2);
 	}
@@ -169,7 +169,7 @@ void compute_accelerations(const std::vector<double> &torque, const Vector2d p_h
 	// Compute friction forces and torques
 	std::vector<Vector2d> F_friction;
 	std::vector<double> M_friction;
-	for(size_t i=0; i<n_seg; i++){
+	for (size_t i=0; i<n_seg; i++) {
 		F_friction.push_back(-k*l_i*v_center[i].dot(n_i[i])*n_i[i]);
 		M_friction.push_back(-k*v_angle[i]*pow(l_i,3)/12);
 		// std::cout << "M_friction[" << i << "] = " << M_friction[i] << std::endl;
@@ -180,15 +180,16 @@ void compute_accelerations(const std::vector<double> &torque, const Vector2d p_h
 	VectorXd B = VectorXd::Zero(5*n_seg+2);
 
 	// Dynamic equations: lines 0 to n_seg-1
-	for(size_t i=1; i<n_seg+1; i++){ // angles..
-		A(i-1, i-1) = m_i*l_i/12;
-		A(i-1, n_seg + 2*i) = l_i/2*sin(p_angle[i-1]); // f_(i, x)
-		A(i-1, n_seg + 2*(i+1)) = l_i/2*sin(p_angle[i-1]); // f_(i+1, x)
+	for (size_t i = 1; i <= n_seg; i++) { // angles..
+		A(i-1, i-1)             = m_i*l_i/12;
+		A(i-1, n_seg + 2*i + 0) = +l_i/2*sin(p_angle[i-1]); // f_(i, x)
+		A(i-1, n_seg + 2*i + 2) = +l_i/2*sin(p_angle[i-1]); // f_(i+1, x)
 		A(i-1, n_seg + 2*i + 1) = -l_i/2*cos(p_angle[i-1]); // f_(i, y)
-		A(i-1, n_seg + 2*(i+1) + 1) = -l_i/2*cos(p_angle[i-1]); // f_(i+1, y)
+		A(i-1, n_seg + 2*i + 3) = -l_i/2*cos(p_angle[i-1]); // f_(i+1, y)
+
 		B(i-1) = M_friction[i-1];
-		if(i-2>=0)	B(i-1) += torque[i-2];
-		if(i-1<n_seg-1) B(i-1) -= torque[i-1];
+		if (i-2>=0)	B(i-1) += torque[i-2];
+		if (i-1<n_seg-1) B(i-1) -= torque[i-1];
 		// std::cout << "B[" << i-1 << "] = " << B(i-1) << std::endl;
 		// if(i-1<n_seg-1) std::cout << "torque[" << i-1 << "] = " << torque[i-1] << std::endl;
 	}
@@ -199,36 +200,41 @@ void compute_accelerations(const std::vector<double> &torque, const Vector2d p_h
 	A(n_seg, n_seg) = 1;
 	A(n_seg+1, n_seg+1) = 1;
 	// lines n_seg+2 to 3*n_seg+1
-	for(size_t i=1; i<n_seg+1; i++){
-		// Equation on x direction
-		A(n_seg+2 + 2*(i-1), n_seg + 2*(i-1)) = 1; //f_(i-1,x)
-		A(n_seg+2 + 2*(i-1), n_seg + 2*i) = -1; //f_(i,x)
-		A(n_seg+2 + 2*(i-1), 3*n_seg + 2*i) = m_i; //G.._(i,x)
-		B(n_seg+2 + 2*(i-1)) = F_friction[i-1](0);
-		// Equation on y direction
-		A(n_seg+2 + 2*(i-1) + 1, n_seg + 2*(i-1) + 1) = 1; //f_(i-1,y)
-		A(n_seg+2 + 2*(i-1) + 1, n_seg + 2*i + 1) = -1; //f_(i,y)
-		A(n_seg+2 + 2*(i-1) + 1, 3*n_seg + 2*i + 1) = m_i; //G.._(i,y) //TODO DEBUG
-		B(n_seg+2 + 2*(i-1) + 1) = F_friction[i-1](1);
+	for (size_t i = 1; i <= n_seg; i++) {
+		// Equation on x/y direction (x:d=0, y:d=1)
+		for (int d = 0; d < 2; d++) {
+			A(n_seg + 2*i + d, d + n_seg + 2*(i-1)) = +1; //f_(i-1,x)
+			A(n_seg + 2*i + d, d + n_seg + 2*i)     = -1; //f_(i,x)
+			A(n_seg + 2*i + d, d + 3*n_seg + 2*i)   = m_i; //G.._(i,x)
+
+			B(n_seg + 2*i + d) = F_friction[i-1](d);
+		}
 	}
 	// lines 3*n_seg+2 to 3*n_seg+3
-	A(3*n_seg+2, 3*n_seg) = 1;
+	A(3*n_seg+2, 3*n_seg)   = 1;
 	A(3*n_seg+3, 3*n_seg+1) = 1;
 
 	// Equations on G.._i: lines 3*n_seg+4 to 5*n_seg+1
-	for(size_t i=1; i<n_seg; i++){
-		// Equation on x direction
-		A(3*n_seg+4 + 2*(i-1), 3*n_seg+2*i) = 1; //G.._(i,x)
-		A(3*n_seg+4 + 2*(i-1), 3*n_seg+2*(i+1)) = -1; //G.._(i+1,x)
-		A(3*n_seg+4 + 2*(i-1), i-1) = -l_i/2*sin(p_angle[i-1]); //theta.._i
-		A(3*n_seg+4 + 2*(i-1), i) = -l_i/2*sin(p_angle[i]); //theta.._(i+1)
-		B(3*n_seg+4 + 2*(i-1)) = l_i/2*(cos(p_angle[i-1])*pow(v_angle[i-1],2) + cos(p_angle[i])*pow(v_angle[i],2));
-		// Equation on y direction
-		A(3*n_seg+4 + 2*(i-1) + 1, 3*n_seg+2*i+1) = 1; //G.._(i,y)
-		A(3*n_seg+4 + 2*(i-1) + 1, 3*n_seg+2*(i+1)+1) = -1; //G.._(i+1,y)
-		A(3*n_seg+4 + 2*(i-1) + 1, i-1) = l_i/2*cos(p_angle[i-1]); //theta.._i
-		A(3*n_seg+4 + 2*(i-1) + 1, i) = l_i/2*cos(p_angle[i]); //theta.._(i+1)
-		B(3*n_seg+4 + 2*(i-1) + 1) = l_i/2*(sin(p_angle[i-1])*pow(v_angle[i-1],2) + sin(p_angle[i])*pow(v_angle[i],2));
+	for (size_t i = 1; i < n_seg; i++) {
+		// Equation on x/y direction (x:d=0, y:d=1)
+		for (int d = 0; d < 2; d++) {
+			A(3*n_seg+4 + 2*(i-1) + d, d + 3*n_seg+2*i)     = +1; //G.._(i,x)
+			A(3*n_seg+4 + 2*(i-1) + d, d + 3*n_seg+2*(i+1)) = -1; //G.._(i+1,x)
+
+			if (d == 0) {
+				A(3*n_seg+4 + 2*(i-1) + d, i-1) = -l_i/2*sin(p_angle[i-1]); //theta.._i
+				A(3*n_seg+4 + 2*(i-1) + d, i-0) = -l_i/2*sin(p_angle[i-0]); //theta.._(i+1)
+
+				B(3*n_seg+4 + 2*(i-1) + d)      = +l_i/2*(cos(p_angle[i-1])*pow(v_angle[i-1],2) +
+														  cos(p_angle[i-0])*pow(v_angle[i-0],2));
+			} else {
+				A(3*n_seg+4 + 2*(i-1) + d, i-1) = +l_i/2*cos(p_angle[i-1]); //theta.._i
+				A(3*n_seg+4 + 2*(i-1) + d, i-0) = +l_i/2*cos(p_angle[i-0]); //theta.._(i+1)
+
+				B(3*n_seg+4 + 2*(i-1) + d)      = +l_i/2*(sin(p_angle[i-1])*pow(v_angle[i-1],2) +
+														  sin(p_angle[i-0])*pow(v_angle[i-0],2));
+			}
+		}
 	}
 
 	// std::cout << "-----------------Matrix A-----------------" << std::endl << A << std::endl << "------------------------------------------" << std::endl;
