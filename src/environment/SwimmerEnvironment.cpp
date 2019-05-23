@@ -150,7 +150,7 @@ void compute_accelerations(const std::vector<double> &torque, const Vector2d &G_
 
 	// Dynamic equations: lines 0 to n_seg-1
 	for (size_t i = 1; i <= n_seg; i++) { // angles..
-		A(i-1, i-1)             = m_i*l_i/12;
+		A(i-1, i-1)             = m_i*pow(l_i,2)/12; // angular momentum of the segment, around the mass center
 		A(i-1, n_seg + 2*i + 0) = +l_i/2*sin(theta[i-1]); // f_(i, x)
 		A(i-1, n_seg + 2*i + 2) = +l_i/2*sin(theta[i-1]); // f_(i+1, x)
 		A(i-1, n_seg + 2*i + 1) = -l_i/2*cos(theta[i-1]); // f_(i, y)
@@ -209,9 +209,16 @@ void compute_accelerations(const std::vector<double> &torque, const Vector2d &G_
 	// std::cout << "-----------------Matrix A-----------------" << std::endl << A << std::endl << "------------------------------------------" << std::endl;
 	// std::cout << "-----------------Vector B-----------------" << std::endl << B << std::endl << "------------------------------------------" << std::endl;
 
-
 	// Solve linear equation, extract second derivatives
 	VectorXd X = A.colPivHouseholderQr().solve(B);
+
+	// std::cout << "-----------------Matrix inv_A-----------------" << std::endl << A.inverse() << std::endl << "------------------------------------------" << std::endl;
+	// std::cout << "-----------------Vector X-----------------" << std::endl << X << std::endl << "------------------------------------------" << std::endl;
+
+	VectorXd X_ = A.inverse()*B;
+	// std::cout << "-----------------Vector X_-----------------" << std::endl << X_ << std::endl << "------------------------------------------" << std::endl;
+
+
 	for (size_t i = 1; i <= n_seg; i++) {
 		theta_dotdot.push_back(X(i-1)); 
 		G_dotdot += 1./n_seg * Vector2d(X(3*n_seg + 2*i), X(3*n_seg + 2*i + 1));
@@ -240,7 +247,7 @@ void compute_friction(const Vector2d &G_dot, const std::vector<double> &theta, c
 	// Compute G1_dot
 	Vector2d G1_dot = G_dot;
 	for (size_t i = 1; i <= n_seg; i++) {
-		Vector2d sum;
+		Vector2d sum(0., 0.);
 		for(size_t j=0; j<i; j++){
 			const double e = (j==0 || j==i-1) ? 0.5 : 1.;
 			sum += e * theta_dot[j] * n_i[j];
@@ -258,7 +265,7 @@ void compute_friction(const Vector2d &G_dot, const std::vector<double> &theta, c
 	// Compute friction forces and torques
 	for (size_t i = 0; i < n_seg; i++) {
 		F_friction.push_back(-k*l_i*G_i_dot[i].dot(n_i[i])*n_i[i]);
-		M_friction.push_back(-k*theta_dot[i]*pow(l_i,3)/12);
+		M_friction.push_back(-k*theta_dot[i]*pow(l_i,3)/12.);
 		// std::cout << "M_friction[" << i << "] = " << M_friction[i] << std::endl;
 	}
 }
