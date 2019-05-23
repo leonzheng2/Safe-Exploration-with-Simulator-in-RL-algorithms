@@ -157,3 +157,4 @@ def plot_random_seed(n_seed, alpha=0.02, nu=0.02):
 if __name__ == '__main__':
     ray.init()
     plot_random_seed(50)
+    

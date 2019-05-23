@@ -15,9 +15,10 @@ const char* env_init()
 {
 	std::cout << "Initialize environment" << std::endl;
 	/* Allocate the observation variable */
-	const int numVar = 2*(2+n_seg); // A_0 is the head of the swimmer, 2D point; and there are n_seg angles. We want also the derivatives.
-	allocateRLStruct(&this_observation,0,numVar,0);
-	allocateRLStruct(&saved_observation,0,numVar,0);
+	const int n_obs = 2 + 2*n_seg; // G_dot_x, G_dot_y, theta_i, theta_dot_i
+	const int n_action = n_seg-1;
+	allocateRLStruct(&this_observation, 0, n_obs, 0);
+	allocateRLStruct(&saved_observation, 0, n_obs, 0);
 
 	std::cout << "Initialization: size of observation is " << this_observation.numDoubles << std::endl;
 
@@ -26,7 +27,7 @@ const char* env_init()
 	this_reward_observation.reward=0;
 	this_reward_observation.terminal=0;
 
-	static std::string task_spec_string = "VERSION RL-Glue-3.0 PROBLEMTYPE continuing DISCOUNTFACTOR 0.9 OBSERVATIONS DOUBLES (" + std::to_string(2*(2+n_seg)) + " UNSPEC UNSPEC) ACTIONS DOUBLES (" + std::to_string(n_seg-1) + " " + std::to_string(-max_u) + " " + std::to_string(max_u) + ") REWARDS (UNSPEC UNSPEC) EXTRA SwimmerEnvironment(C++) by Leon Zheng";
+	static std::string task_spec_string = "VERSION RL-Glue-3.0 PROBLEMTYPE continuing DISCOUNTFACTOR 0.9 OBSERVATIONS DOUBLES (" + std::to_string(n_obs) + " UNSPEC UNSPEC) ACTIONS DOUBLES (" + std::to_string(n_action) + " " + std::to_string(-max_u) + " " + std::to_string(max_u) + ") REWARDS (UNSPEC UNSPEC) EXTRA SwimmerEnvironment(C++) by Leon Zheng";
 
 	return task_spec_string.c_str();
 }
@@ -57,6 +58,7 @@ const reward_observation_terminal_t *env_step(const action_t *this_action)
 		assert(abs(this_action->doubleArray[i]) <= max_u);
 	}
 
+	print_state(this_observation);
 	updateState(this_observation, this_action);
 	this_reward_observation.observation = &this_observation;
 	this_reward_observation.reward = calculate_reward(this_observation);
@@ -104,76 +106,43 @@ void updateState(observation_t &state, const action_t* action)
 	for(size_t i=0; i<n_seg-1; i++){
 		torque.push_back(action->doubleArray[i]);
 	}
-	Vector2d p_head(state.doubleArray[0], state.doubleArray[1]);
-	Vector2d v_head(state.doubleArray[2], state.doubleArray[3]);
-	std::vector<double> p_angle;
-	std::vector<double> v_angle;
+	Vector2d G_dot(state.doubleArray[0], state.doubleArray[1]);
+	std::vector<double> theta;
+	std::vector<double> theta_dot;
 	for(size_t i=0; i<n_seg; i++){
-		p_angle.push_back(state.doubleArray[4+i]);
-		v_angle.push_back(state.doubleArray[4+n_seg+i]);
+		theta.push_back(state.doubleArray[2 + 2*i]);
+		theta_dot.push_back(state.doubleArray[2 + 2*i + 1]);
 	}
 	// std::cout << "Information extracted" << std::endl;
 
 	// Compute accelerations
-	Vector2d a_head;
-	std::vector<double> a_angle;
-	compute_accelerations(torque, p_head, v_head, p_angle, v_angle, a_head, a_angle);
+	Vector2d G_dotdot(0., 0.);
+	std::vector<double> theta_dotdot;
+	compute_accelerations(torque, G_dot, theta, theta_dot, G_dotdot, theta_dotdot);
 	// std::cout << "Accelerations computed" << std::endl;
 
 	// Semi-implicit Euler
 	const double h = h_global;
-	semi_implicit_euler(h, p_head, p_angle, v_head, v_angle, a_head, a_angle);
+	semi_implicit_euler(h, theta, G_dot, theta_dot, G_dotdot, theta_dotdot);
 	// std::cout << "Semi-implicit Euler done" << std::endl;
 
 	// Return new state
-	state.doubleArray[0] = p_head(0);
-	state.doubleArray[1] = p_head(1);
-	state.doubleArray[2] = v_head(0);
-	state.doubleArray[3] = v_head(1);
+	state.doubleArray[0] = G_dot(0);
+	state.doubleArray[1] = G_dot(1);
 	for(size_t i=0; i<n_seg; i++){
-		state.doubleArray[4+i] = p_angle[i];
-		state.doubleArray[4+n_seg+i] = v_angle[i];
+		state.doubleArray[2 + 2*i] = theta[i];
+		state.doubleArray[2 + 2*i + 1] = theta_dot[i];
 	}
 	// std::cout << "New state returned" << std::endl;
 }
 
-void compute_accelerations(const std::vector<double> &torque, const Vector2d p_head, const Vector2d v_head, const std::vector<double> &p_angle, const std::vector<double> &v_angle,
-							Vector2d &a_head, std::vector<double> &a_angle)
+void compute_accelerations(const std::vector<double> &torque, const Vector2d &G_dot, const std::vector<double> &theta, const std::vector<double> &theta_dot,
+							Vector2d &G_dotdot, std::vector<double> &theta_dotdot)
 {
-	// Computes direction unit vectors
-	std::vector<Vector2d> p_i;
-	std::vector<Vector2d> n_i;
-	for (size_t i=0; i<n_seg; i++) {
-		p_i.push_back(Vector2d( cos(p_angle[i]), sin(p_angle[i])));
-		n_i.push_back(Vector2d(-sin(p_angle[i]), cos(p_angle[i])));
-	}
-
-	// Compute point's positions and speed
-	std::vector<Vector2d> p_points;
-	std::vector<Vector2d> v_points;
-	p_points.push_back(p_head);
-	v_points.push_back(v_head);
-	for (size_t i=0; i<n_seg; i++) {
-		p_points.push_back(p_points[i] + l_i*p_i[i]);
-		v_points.push_back(v_points[i] + l_i*v_angle[i]*n_i[i]);
-	}
-
-	// And also for the mass centers
-	std::vector<Vector2d> p_center;
-	std::vector<Vector2d> v_center;
-	for (size_t i=0; i<n_seg; i++) {
-		p_center.push_back((p_points[i]+p_points[i+1])/2);
-		v_center.push_back((v_points[i]+v_points[i+1])/2);
-	}
-
 	// Compute friction forces and torques
 	std::vector<Vector2d> F_friction;
 	std::vector<double> M_friction;
-	for (size_t i=0; i<n_seg; i++) {
-		F_friction.push_back(-k*l_i*v_center[i].dot(n_i[i])*n_i[i]);
-		M_friction.push_back(-k*v_angle[i]*pow(l_i,3)/12);
-		// std::cout << "M_friction[" << i << "] = " << M_friction[i] << std::endl;
-	}
+	compute_friction(G_dot, theta, theta_dot, F_friction, M_friction);
 
 	// Matrix and vector of the linear system
 	MatrixXd A = MatrixXd::Zero(5*n_seg+2, 5*n_seg+2);
@@ -182,10 +151,10 @@ void compute_accelerations(const std::vector<double> &torque, const Vector2d p_h
 	// Dynamic equations: lines 0 to n_seg-1
 	for (size_t i = 1; i <= n_seg; i++) { // angles..
 		A(i-1, i-1)             = m_i*l_i/12;
-		A(i-1, n_seg + 2*i + 0) = +l_i/2*sin(p_angle[i-1]); // f_(i, x)
-		A(i-1, n_seg + 2*i + 2) = +l_i/2*sin(p_angle[i-1]); // f_(i+1, x)
-		A(i-1, n_seg + 2*i + 1) = -l_i/2*cos(p_angle[i-1]); // f_(i, y)
-		A(i-1, n_seg + 2*i + 3) = -l_i/2*cos(p_angle[i-1]); // f_(i+1, y)
+		A(i-1, n_seg + 2*i + 0) = +l_i/2*sin(theta[i-1]); // f_(i, x)
+		A(i-1, n_seg + 2*i + 2) = +l_i/2*sin(theta[i-1]); // f_(i+1, x)
+		A(i-1, n_seg + 2*i + 1) = -l_i/2*cos(theta[i-1]); // f_(i, y)
+		A(i-1, n_seg + 2*i + 3) = -l_i/2*cos(theta[i-1]); // f_(i+1, y)
 
 		B(i-1) = M_friction[i-1];
 		if (i-2>=0)	B(i-1) += torque[i-2];
@@ -222,17 +191,17 @@ void compute_accelerations(const std::vector<double> &torque, const Vector2d p_h
 			A(3*n_seg+4 + 2*(i-1) + d, d + 3*n_seg+2*(i+1)) = -1; //G.._(i+1,x)
 
 			if (d == 0) {
-				A(3*n_seg+4 + 2*(i-1) + d, i-1) = -l_i/2*sin(p_angle[i-1]); //theta.._i
-				A(3*n_seg+4 + 2*(i-1) + d, i-0) = -l_i/2*sin(p_angle[i-0]); //theta.._(i+1)
+				A(3*n_seg+4 + 2*(i-1) + d, i-1) = -l_i/2*sin(theta[i-1]); //theta.._i
+				A(3*n_seg+4 + 2*(i-1) + d, i-0) = -l_i/2*sin(theta[i-0]); //theta.._(i+1)
 
-				B(3*n_seg+4 + 2*(i-1) + d)      = +l_i/2*(cos(p_angle[i-1])*pow(v_angle[i-1],2) +
-				                                          cos(p_angle[i-0])*pow(v_angle[i-0],2));
+				B(3*n_seg+4 + 2*(i-1) + d)      = +l_i/2*(cos(theta[i-1])*pow(theta_dot[i-1],2) +
+				                                          cos(theta[i-0])*pow(theta_dot[i-0],2));
 			} else {
-				A(3*n_seg+4 + 2*(i-1) + d, i-1) = +l_i/2*cos(p_angle[i-1]); //theta.._i
-				A(3*n_seg+4 + 2*(i-1) + d, i-0) = +l_i/2*cos(p_angle[i-0]); //theta.._(i+1)
+				A(3*n_seg+4 + 2*(i-1) + d, i-1) = +l_i/2*cos(theta[i-1]); //theta.._i
+				A(3*n_seg+4 + 2*(i-1) + d, i-0) = +l_i/2*cos(theta[i-0]); //theta.._(i+1)
 
-				B(3*n_seg+4 + 2*(i-1) + d)      = +l_i/2*(sin(p_angle[i-1])*pow(v_angle[i-1],2) +
-				                                          sin(p_angle[i-0])*pow(v_angle[i-0],2));
+				B(3*n_seg+4 + 2*(i-1) + d)      = +l_i/2*(sin(theta[i-1])*pow(theta_dot[i-1],2) +
+				                                          sin(theta[i-0])*pow(theta_dot[i-0],2));
 			}
 		}
 	}
@@ -243,45 +212,110 @@ void compute_accelerations(const std::vector<double> &torque, const Vector2d p_h
 
 	// Solve linear equation, extract second derivatives
 	VectorXd X = A.colPivHouseholderQr().solve(B);
-	for(size_t i=0; i<n_seg; i++){
-		a_angle.push_back(X(i));
+	for (size_t i = 1; i <= n_seg; i++) {
+		theta_dotdot.push_back(X(i-1)); 
+		G_dotdot += 1./n_seg * Vector2d(X(3*n_seg + 2*i), X(3*n_seg + 2*i + 1));
 	}
-	a_head = Vector2d(X(3*n_seg+2), X(3*n_seg+3)) - l_i/2*(a_angle[0]*Vector2d(-sin(p_angle[0]), cos(p_angle[0])) - pow(v_angle[0],2)*Vector2d(cos(p_angle[0]), sin(p_angle[0])));
 }
 
-void semi_implicit_euler(double h, Vector2d& p_head, std::vector<double> &p_angle, Vector2d& v_head, std::vector<double> &v_angle, 
-							const Vector2d& a_head, const std::vector<double> &a_angle)
+void semi_implicit_euler(double h, std::vector<double> &theta, Vector2d& G_dot, std::vector<double> &theta_dot, 
+							const Vector2d& G_dotdot, const std::vector<double> &theta_dotdot)
 {
-	v_head = v_head + h*a_head;
-	p_head = p_head + h*v_head;
+	G_dot = G_dot + h*G_dotdot;
 	for(size_t i=0; i<n_seg; i++){
-		v_angle[i] = v_angle[i] + h*a_angle[i];
-		p_angle[i] = p_angle[i] + h*v_angle[i];
+		theta_dot[i] = theta_dot[i] + h*theta_dotdot[i];
+		theta[i] = theta[i] + h*theta_dot[i];
+	}
+}
+
+void compute_friction(const Vector2d &G_dot, const std::vector<double> &theta, const std::vector<double> &theta_dot, 
+							std::vector<Vector2d> &F_friction, std::vector<double> &M_friction)
+{
+	// Computes direction unit vectors
+	std::vector<Vector2d> n_i;
+	for (size_t i=0; i<n_seg; i++) {
+		n_i.push_back(Vector2d(-sin(theta[i]), cos(theta[i])));
+	}
+
+	// Compute G1_dot
+	Vector2d G1_dot = G_dot;
+	for (size_t i = 1; i <= n_seg; i++) {
+		Vector2d sum;
+		for(size_t j=0; j<i; j++){
+			const double e = (j==0 || j==i-1) ? 0.5 : 1.;
+			sum += e * theta_dot[j] * n_i[j];
+		}
+		G1_dot -= l_i/n_seg * sum;
+	}
+
+	// Compute mass centers speed
+	std::vector<Vector2d> G_i_dot;
+	G_i_dot.push_back(G1_dot);
+	for (size_t i = 1; i < n_seg; i++) {
+		G_i_dot.push_back(G_i_dot[i-1] + l_i/2*theta_dot[i-1]*n_i[i-1] + l_i/2*theta_dot[i]*n_i[i]);
+	}
+
+	// Compute friction forces and torques
+	for (size_t i = 0; i < n_seg; i++) {
+		F_friction.push_back(-k*l_i*G_i_dot[i].dot(n_i[i])*n_i[i]);
+		M_friction.push_back(-k*theta_dot[i]*pow(l_i,3)/12);
+		// std::cout << "M_friction[" << i << "] = " << M_friction[i] << std::endl;
 	}
 }
 
 double calculate_reward(const observation_t& state)
 {
-	const Vector2d v_head(state.doubleArray[2], state.doubleArray[3]);
-	const double* p_angle = &state.doubleArray[4];
-	const double* v_angle = &state.doubleArray[4 + n_seg];
-	std::vector<Vector2d> v_points;
-	v_points.push_back(v_head);
-	for(size_t i=1; i<n_seg+1; i++){
-		v_points.push_back(v_points[i-1] + l_i*v_angle[i-1]*Vector2d(-sin(p_angle[i-1]), cos(p_angle[i-1])));
-	}
-
-	Vector2d v_barycenter(0., 0.);
-	for(size_t i=0; i<n_seg; i++){
-		v_barycenter += 1./n_seg * (v_points[i]+v_points[i+1])/2;
-	}
-
-	return v_barycenter.dot(direction);
+	const Vector2d G_dot(state.doubleArray[0], state.doubleArray[1]);
+	return G_dot.dot(direction);
 }
 
 int check_terminal(const observation_t& state)
 {
 	return 0;
+}
+
+void print_state(const observation_t &state) 
+{
+	std::cout << "State = {";
+	for (size_t i = 0; i < state.numDoubles; i++) {
+		std::cout << state.doubleArray[i];
+		if (i < state.numDoubles-1) {
+			std::cout << "; ";
+		} else {
+			std::cout << "}" << std::endl; 
+		}
+	}
+}
+
+void set_parameters(const std::string &param_file)
+{
+	using namespace std;
+	string line;
+	ifstream inFile(param_file);
+
+	if (inFile.is_open()) {
+		cout << "File is opened" << endl;
+		while (getline(inFile, line)) {
+	    	stringstream ss(line);
+	    	string varName;
+	    	ss >> varName;
+			if(varName=="n_seg") ss >> n_seg;
+			else if(varName=="max_u") ss >> max_u;
+			else if(varName=="l_i") ss >> l_i;
+			else if(varName=="k") ss >> k;
+			else if(varName=="m_i") ss >> m_i;
+			else if(varName=="h_global") ss >> h_global;
+			else if(varName=="direction"){
+				double x;
+				double y;
+				ss >> x;
+				ss >> y;
+				direction = Vector2d(x, y);
+			}
+	    }
+	    inFile.close();
+	}
+	else cout << "Unable to open file for setting environment parameters" << std::endl; 
 }
 
 void save_state()
@@ -314,60 +348,4 @@ void load_state()
 	for(unsigned int i=0; i<this_observation.numChars; i++){
 		this_observation.charArray[i] = saved_observation.charArray[i];
 	}
-}
-
-void print_state(const observation_t &state) 
-{
-	Vector2d p_head(state.doubleArray[0], state.doubleArray[1]);
-	Vector2d v_head(state.doubleArray[2], state.doubleArray[3]);
-	const double* p_angle = &state.doubleArray[4];
-	const double* v_angle = &state.doubleArray[4 + n_seg];
-
-	std::cout << "p_head = (" << p_head[0] << "; " << p_head[1] << ")" << std::endl;
-	std::cout << "v_head = (" << v_head[0] << "; " << v_head[1] << ")" << std::endl;
-	std::string p_s = "p_angle = {";
-	std::string v_s = "v_angle = {";
-	for(size_t i=0; i<n_seg; i++){
-		p_s += std::to_string(p_angle[i]);
-		v_s += std::to_string(v_angle[i]);
-		if(i==n_seg-1){
-			p_s += "}";
-			v_s += "}";
-		} else {
-			p_s += "; ";
-			v_s += "; ";
-		}
-	}
-	std::cout << p_s << std::endl << v_s << std::endl;
-}
-
-void set_parameters(const std::string &param_file)
-{
-	using namespace std;
-	string line;
-	ifstream inFile(param_file);
-
-	if (inFile.is_open()) {
-		cout << "File is opened" << endl;
-		while (getline(inFile, line)) {
-	    	stringstream ss(line);
-	    	string varName;
-	    	ss >> varName;
-			if(varName=="n_seg") ss >> n_seg;
-			else if(varName=="max_u") ss >> max_u;
-			else if(varName=="l_i") ss >> l_i;
-			else if(varName=="k") ss >> k;
-			else if(varName=="m_i") ss >> m_i;
-			else if(varName=="h_global") ss >> h_global;
-			else if(varName=="direction"){
-				double x;
-				double y;
-				ss >> x;
-				ss >> y;
-				direction = Vector2d(x, y);
-			}
-	    }
-	    inFile.close();
-	}
-	else cout << "Unable to open file for setting environment parameters" << std::endl; 
 }
