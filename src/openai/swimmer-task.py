@@ -41,7 +41,8 @@ class SwimmerEnv(gym.Env):
         :param action: array
         :return: array, float, boolean, dictionary
         """
-        self.G_dot, self.theta, self.theta_dot = self.next_observation(action, self.G_dot, self.theta, self.theta_dot)
+        self.G_dot, self.theta, self.theta_dot = self.next_observation(action, self.G_dot, self.theta,
+                                                                       self.theta_dot)
         ob = self.get_state()
         reward = self.get_reward()
         done = self.check_terminal()
@@ -90,10 +91,10 @@ class SwimmerEnv(gym.Env):
 
         for i in range(1, self.n + 1):
             A[i - 1, i - 1] = self.m_i * self.l_i ** 2 / 12.
-            A[i - 1, self.n + 2 * i + 0] = +self.l_i / 2. * np.sin(theta[i - 1])
-            A[i - 1, self.n + 2 * i + 2] = +self.l_i / 2. * np.sin(theta[i - 1])
-            A[i - 1, self.n + 2 * i + 1] = -self.l_i / 2. * np.cos(theta[i - 1])
-            A[i - 1, self.n + 2 * i + 3] = -self.l_i / 2. * np.cos(theta[i - 1])
+            A[i - 1, self.n + 2 * (i - 1) + 0] = +self.l_i / 2. * np.sin(theta[i - 1])
+            A[i - 1, self.n + 2 * (i - 1) + 2] = +self.l_i / 2. * np.sin(theta[i - 1])
+            A[i - 1, self.n + 2 * (i - 1) + 1] = -self.l_i / 2. * np.cos(theta[i - 1])
+            A[i - 1, self.n + 2 * (i - 1) + 3] = -self.l_i / 2. * np.cos(theta[i - 1])
 
             B[i - 1] = M_friction[i - 1]
             if i - 2 >= 0:
@@ -131,8 +132,14 @@ class SwimmerEnv(gym.Env):
                     B[3 * self.n + 4 + 2 * (i - 1) + d] = +self.l_i / 2. * (
                             np.sin(theta[i - 1]) * theta_dot[i - 1] ** 2 + np.sin(theta[i]) * theta_dot[i] ** 2)
 
-        # print(f"A = {A}")
-        # print(f"invA = {np.linalg.inv(A)}")
+        # print("-----------------------Matrix A------------------------")
+        # matprint(A)
+        # print("------------------------------------------------------")
+        #
+        # print("---------------------Matrix invA----------------------")
+        # matprint(np.linalg.inv(A))
+        # print("-----------------------------------------------------")
+        #
         # print(f"B = {B}")
 
         X = np.linalg.solve(A, B)
@@ -158,20 +165,28 @@ class SwimmerEnv(gym.Env):
         """
 
         normal = np.array([np.array([-np.sin(theta[i]), np.cos(theta[i])]) for i in range(self.n)])
+        # print(f"normal = {normal}")
 
-        G1_dot = np.array(G_dot)
-        for i in range(1, self.n + 1):
-            sum = np.zeros(2)
-            for j in range(i):
-                e = 0.5 if j == 0 or j == i - 1 else 1.
-                sum += e * theta_dot[j] * normal[j]
-            G1_dot -= self.l_i / self.n * sum
-
-        G_i_dot = [G1_dot]
-        for i in range(1, self.n):
-            G_i_dot.append(
-                G_i_dot[i - 1] + self.l_i / 2. * theta_dot[i - 1] * normal[i - 1] + self.l_i / 2. * theta_dot[i] *
-                normal[i])
+        M = np.zeros((self.n, self.n))
+        vecX = np.zeros(self.n)
+        vecY = np.zeros(self.n)
+        for i in range(self.n):
+            if i == 0:
+                M[0] = np.full(self.n, 1 / self.n)
+                vecX[0] = G_dot[0]
+                vecY[0] = G_dot[1]
+            else:
+                M[i][i] = 1
+                M[i][i - 1] = -1
+                vecX[i] = self.l_i / 2 * (theta_dot[i - 1] * normal[i - 1][0] + theta_dot[i] * normal[i][0])
+                vecY[i] = self.l_i / 2 * (theta_dot[i - 1] * normal[i - 1][1] + theta_dot[i] * normal[i][1])
+        # print(f"theta = {theta}")
+        # print(f"M = {M}")
+        # print(f"vecX = {vecX}")
+        G_i_dot_x = np.linalg.solve(M, vecX)
+        G_i_dot_y = np.linalg.solve(M, vecY)
+        G_i_dot = np.array([[G_i_dot_x[i], G_i_dot_y[i]] for i in range(self.n)])
+        # print(f"Method 2 - G_i_dot = {G_i_dot}")
 
         F_friction = [-self.k * self.l_i * np.dot(G_i_dot[i], normal[i]) * normal[i] for i in range(self.n)]
         M_friction = [-self.k * theta_dot[i] * self.l_i ** 3 / 12. for i in range(self.n)]
@@ -208,6 +223,13 @@ class SwimmerEnv(gym.Env):
 
     def render(self, mode='human'):
         return
+
+def matprint(mat, fmt="g"):
+    col_maxes = [max([len(("{:" + fmt + "}").format(x)) for x in col]) for col in mat.T]
+    for x in mat:
+        for i, y in enumerate(x):
+            print(("{:" + str(col_maxes[i]) + fmt + "}").format(y), end="  ")
+        print("")
 
 
 # @ray.remote
@@ -349,7 +371,7 @@ def plot_random_seed(n_seed, alpha=0.02, nu=0.02, n=3, M=3, L=3):
     # Seeds
     r_graphs = []
     for i in range(n_seed):
-        agent = ARSAgent(n_it=10000, seed=i, alpha=alpha, nu=nu, n=n, m_i=M/n, l_i=L/n, h=0.00001)
+        agent = ARSAgent(n_it=100, seed=i, alpha=alpha, nu=nu, n=n, m_i=M/n, l_i=L/n, h=0.01)
         r_graphs.append(agent.runTraining())
 
     # Plot graphs
@@ -366,5 +388,5 @@ def plot_random_seed(n_seed, alpha=0.02, nu=0.02, n=3, M=3, L=3):
 
 if __name__ == '__main__':
     # ray.init(num_cpus=6)
-    for n in range(5, 8):
+    for n in range(3, 8):
         plot_random_seed(1, n=n)
