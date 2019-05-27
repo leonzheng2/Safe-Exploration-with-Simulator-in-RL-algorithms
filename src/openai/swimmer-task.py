@@ -9,6 +9,16 @@ class SwimmerEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
     def __init__(self, direction=np.array([1., 0.]), n=3, max_u=5., l_i=1., k=10., m_i=1., h=0.003):
+        """
+        Constructor
+        :param direction: array of length 2
+        :param n: int
+        :param max_u: float
+        :param l_i: float
+        :param k: float
+        :param m_i: float
+        :param h: float
+        """
         # Parameters of the environment
         self.direction = direction
         self.n = n
@@ -26,8 +36,12 @@ class SwimmerEnv(gym.Env):
         self.action_space = spaces.Box(-self.max_u, self.max_u, shape=(n_action,), dtype=np.float32)
 
     def step(self, action):
+        """
+        Doing one step of RL environment. Returns next step given the given and previous state
+        :param action: array
+        :return: array, float, boolean, dictionary
+        """
         self.G_dot, self.theta, self.theta_dot = self.next_observation(action, self.G_dot, self.theta, self.theta_dot)
-
         ob = self.get_state()
         reward = self.get_reward()
         done = self.check_terminal()
@@ -35,20 +49,40 @@ class SwimmerEnv(gym.Env):
         return ob, reward, done, info
 
     def reset(self):
+        """
+        Reset the environment to the initial state. Return the corresponding observation.
+        :return: array
+        """
         self.G_dot = np.full(2, 0.001)
         self.theta = np.full(self.n, 0.001)
         self.theta_dot = np.full(self.n, 0.001)
         return self.get_state()
 
     def next_observation(self, torque, G_dot, theta, theta_dot):
+        """
+        Helper method for doing one step. Compute accelerations and do semi-implicit Euler intergration
+        :param torque: array
+        :param G_dot: array
+        :param theta: array
+        :param theta_dot: array
+        :return: array, array, array
+        """
         G_dotdot, theta_dotdot = self.compute_accelerations(torque, G_dot, theta, theta_dot)
-        # Semi-implicit Euler intergration
+        # Semi-implicit Euler integration
         G_dot = G_dot + self.h * G_dotdot
         theta_dot = theta_dot + self.h * theta_dotdot
         theta = theta + self.h * theta_dot
         return G_dot, theta, theta_dot
 
     def compute_accelerations(self, torque, G_dot, theta, theta_dot):
+        """
+        Solve the linear equation to compute accelerations.
+        :param torque: array
+        :param G_dot: array
+        :param theta: array
+        :param theta_dot: array
+        :return: array, array
+        """
         F_friction, M_friction = self.compute_friction(G_dot, theta, theta_dot)
 
         A = np.zeros((5 * self.n + 2, 5 * self.n + 2))
@@ -115,6 +149,13 @@ class SwimmerEnv(gym.Env):
         return G_dotdot, theta_dotdot
 
     def compute_friction(self, G_dot, theta, theta_dot):
+        """
+        Compute frictions for constructing the matrix used in compute_accelerations().
+        :param G_dot: array
+        :param theta: array
+        :param theta_dot: array
+        :return: array, array
+        """
 
         normal = np.array([np.array([-np.sin(theta[i]), np.cos(theta[i])]) for i in range(self.n)])
 
@@ -141,15 +182,27 @@ class SwimmerEnv(gym.Env):
         return F_friction, M_friction
 
     def get_state(self):
+        """
+        Return the observation in an array form
+        :return: array
+        """
         ob = self.G_dot.tolist()
         for i in range(self.n):
             ob += [self.theta[i], self.theta_dot[i]]
         return ob
 
     def get_reward(self):
+        """
+        Compute the reward for the current observation
+        :return: float
+        """
         return self.G_dot.dot(self.direction)
 
     def check_terminal(self):
+        """
+        Check if the episode is finished or not.
+        :return: boolean
+        """
         # TODO
         return False
 
@@ -296,7 +349,7 @@ def plot_random_seed(n_seed, alpha=0.02, nu=0.02, n=3, M=3, L=3):
     # Seeds
     r_graphs = []
     for i in range(n_seed):
-        agent = ARSAgent(n_it=500, seed=i, alpha=alpha, nu=nu, n=n, m_i=M/n, l_i=L/n, h=0.001)
+        agent = ARSAgent(n_it=10000, seed=i, alpha=alpha, nu=nu, n=n, m_i=M/n, l_i=L/n, h=0.00001)
         r_graphs.append(agent.runTraining())
 
     # Plot graphs
