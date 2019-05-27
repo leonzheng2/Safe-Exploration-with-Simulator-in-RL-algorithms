@@ -4,23 +4,24 @@ from gym import spaces
 import matplotlib.pyplot as plt
 import ray
 
+
 class SwimmerEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self):
+    def __init__(self, direction=np.array([1., 0.]), n=3, max_u=5., l_i=1., k=10., m_i=1., h=0.003):
         # Parameters of the environment
-        self.direction = np.array([1., 0.])
-        self.n = 3
-        self.max_u = 5.
-        self.l_i = 1.
-        self.k = 10.
-        self.m_i = 1.
-        self.h = 0.003
+        self.direction = direction
+        self.n = n
+        self.max_u = max_u
+        self.l_i = l_i
+        self.k = k
+        self.m_i = m_i
+        self.h = h
 
         # Observation and action space
         n_obs = 2 * self.n + 2
         n_action = self.n - 1
-        inf = float("inf")
+        inf = 1000
         self.observation_space = spaces.Box(-inf, inf, shape=(n_obs,), dtype=np.float32)
         self.action_space = spaces.Box(-self.max_u, self.max_u, shape=(n_action,), dtype=np.float32)
 
@@ -156,11 +157,12 @@ class SwimmerEnv(gym.Env):
         return
 
 
-@ray.remote
+# @ray.remote
 class ARSAgent():
 
-    def __init__(self, n_it=1000, N=1, b=1, H=1000, alpha=0.02, nu=0.02, seed=None):
-        self.env = SwimmerEnv()  # Environment
+    def __init__(self, n_it=1000, N=1, b=1, H=1000, alpha=0.02, nu=0.02, seed=None, n=3,
+                 l_i=1., m_i=1., h=0.01):
+        self.env = SwimmerEnv(n=n, l_i=l_i, m_i=m_i, h=h)  # Environment
         self.policy = np.zeros((self.env.action_space.shape[0], self.env.observation_space.shape[0]))  # Linear policy
         self.n_it = n_it
         self.N = N
@@ -169,6 +171,7 @@ class ARSAgent():
         self.alpha = alpha
         self.nu = nu
         self.seed = seed
+        self.n = n
         np.random.seed(self.seed)
 
     def select_action(self, policy, observation):
@@ -254,8 +257,8 @@ class ARSAgent():
             self.runOneIteration()
             r = self.rollout(self.policy)
             rewards.append(r)
-            if j % (self.n_it // 10) == 0:
-                print(f"------ alpha={self.alpha}; nu={self.nu}; seed={self.seed} ------")
+            if j % (self.n_it // self.n_it) == 0:
+                print(f"------ alpha={self.alpha}; nu={self.nu}; seed={self.seed}; n={self.n} ------")
                 print(f"Iteration {j}: {r}")
         self.env.close()
         return np.array(rewards)
@@ -289,26 +292,26 @@ def plot_hyperparameters(alphas, nus):
     plt.show()
 
 
-def plot_random_seed(n_seed, alpha=0.02, nu=0.02):
+def plot_random_seed(n_seed, alpha=0.02, nu=0.02, n=3, M=3, L=3):
     # Seeds
     r_graphs = []
     for i in range(n_seed):
-        # agent = SwimmerAgent(n_it=500, seed=i, alpha=alpha, nu=nu)
-        # r_graphs.append(agent.runTraining())
-        agent = ARSAgent.remote(n_it=100, seed=i, alpha=alpha, nu=nu)
-        r_graphs.append(agent.runTraining.remote())
+        agent = ARSAgent(n_it=500, seed=i, alpha=alpha, nu=nu, n=n, m_i=M/n, l_i=L/n, h=0.001)
+        r_graphs.append(agent.runTraining())
 
     # Plot graphs
     for rewards in r_graphs:
-        rewards = ray.get(rewards)
+        # rewards = ray.get(rewards)
         plt.plot(rewards)
-    plt.title(f"n_seed={n_seed}, alpha={alpha}, nu={nu}")
+    plt.title(f"n_seed={n_seed}, alpha={alpha}, nu={nu}, n={n}")
     plt.xlabel("Iteration")
     plt.ylabel("Reward")
-    plt.savefig("../../results/ars_random_seeds-.png")
-    plt.show()
+    np.save(f"rewards_n={n}.png", np.array(r_graphs))
+    plt.savefig(f"ars_random_seeds_n={n}.png")
+    # plt.show()
 
 
 if __name__ == '__main__':
-    ray.init()
-    plot_random_seed(8)
+    # ray.init(num_cpus=6)
+    for n in range(5, 8):
+        plot_random_seed(1, n=n)
