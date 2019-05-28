@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import gym
 from gym import spaces
@@ -54,9 +55,9 @@ class SwimmerEnv(gym.Env):
         Reset the environment to the initial state. Return the corresponding observation.
         :return: array
         """
-        self.G_dot = np.full(2, 0.001)
-        self.theta = np.full(self.n, 0.001)
-        self.theta_dot = np.full(self.n, 0.001)
+        self.G_dot = np.full(2, 0.)
+        self.theta = np.full(self.n, math.pi/2)
+        self.theta_dot = np.full(self.n, 0.)
         return self.get_state()
 
     def next_observation(self, torque, G_dot, theta, theta_dot):
@@ -84,117 +85,103 @@ class SwimmerEnv(gym.Env):
         :param theta_dot: array
         :return: array, array
         """
-        F_friction, M_friction = self.compute_friction(G_dot, theta, theta_dot)
 
-        A = np.zeros((5 * self.n + 2, 5 * self.n + 2))
-        B = np.zeros(5 * self.n + 2)
+        A_dot_X, A_dot_Y, A_dotdot_X, A_dotdot_Y = self.compute_points_speed_acc(G_dot, theta, theta_dot)
+        force_X, force_Y = self.compute_joint_force(theta, A_dot_X, A_dot_Y, A_dotdot_X, A_dotdot_Y)
+        system = self.compute_dynamic_matrix(theta, theta_dot, torque, force_X, force_Y)
 
-        for i in range(1, self.n + 1):
-            A[i - 1, i - 1] = self.m_i * self.l_i ** 2 / 12.
-            A[i - 1, self.n + 2 * (i - 1) + 0] = +self.l_i / 2. * np.sin(theta[i - 1])
-            A[i - 1, self.n + 2 * (i - 1) + 2] = +self.l_i / 2. * np.sin(theta[i - 1])
-            A[i - 1, self.n + 2 * (i - 1) + 1] = -self.l_i / 2. * np.cos(theta[i - 1])
-            A[i - 1, self.n + 2 * (i - 1) + 3] = -self.l_i / 2. * np.cos(theta[i - 1])
-
-            B[i - 1] = M_friction[i - 1]
-            if i - 2 >= 0:
-                B[i - 1] += torque[i - 2]
-            if i - 1 < self.n - 1:
-                B[i - 1] -= torque[i - 1]
-
-        A[self.n][self.n] = 1
-        A[self.n + 1][self.n + 1] = 1
-
-        for i in range(1, self.n + 1):
-            for d in range(2):
-                A[self.n + 2 + 2 * (i - 1) + d][self.n + 2 * (i - 1) + d] = +1
-                A[self.n + 2 + 2 * (i - 1) + d][self.n + 2 * i + d] = -1
-                A[self.n + 2 + 2 * (i - 1) + d][3 * self.n + 2 * i + d] = self.m_i
-                B[self.n + 2 + 2 * (i - 1) + d] = F_friction[i - 1][d]
-
-        A[3 * self.n + 2][3 * self.n] = 1
-        A[3 * self.n + 3][3 * self.n + 1] = 1
-
-        for i in range(1, self.n):
-            for d in range(2):
-                A[3 * self.n + 4 + 2 * (i - 1) + d][3 * self.n + 2 * i + d] = +1
-                A[3 * self.n + 4 + 2 * (i - 1) + d][3 * self.n + 2 * (i + 1) + d] = -1
-
-                if d == 0:
-                    A[3 * self.n + 4 + 2 * (i - 1) + d][i - 1] = -self.l_i / 2. * np.sin(theta[i - 1])
-                    A[3 * self.n + 4 + 2 * (i - 1) + d][i] = -self.l_i / 2 * np.sin(theta[i])
-                    B[3 * self.n + 4 + 2 * (i - 1) + d] = +self.l_i / 2. * (
-                            np.cos(theta[i - 1]) * theta_dot[i - 1] ** 2 + np.cos(theta[i]) * theta_dot[i] ** 2)
-
-                else:
-                    A[3 * self.n + 4 + 2 * (i - 1) + d][i - 1] = +self.l_i / 2. * np.cos(theta[i - 1])
-                    A[3 * self.n + 4 + 2 * (i - 1) + d][i] = +self.l_i / 2. * np.cos(theta[i])
-                    B[3 * self.n + 4 + 2 * (i - 1) + d] = +self.l_i / 2. * (
-                            np.sin(theta[i - 1]) * theta_dot[i - 1] ** 2 + np.sin(theta[i]) * theta_dot[i] ** 2)
-
-        # print("-----------------------Matrix A------------------------")
-        # matprint(A)
-        # print("------------------------------------------------------")
-        #
-        # print("---------------------Matrix invA----------------------")
-        # matprint(np.linalg.inv(A))
-        # print("-----------------------------------------------------")
-        #
-        # print(f"B = {B}")
-
-        X = np.linalg.solve(A, B)
-
-        # print(f"X = {X}")
-
-        theta_dotdot = np.array(X[:self.n])
-        # print(f"theta_dotdot = {theta_dotdot}")
-        G_i_dotdot = X[3 * self.n + 2:].reshape(self.n, 2)
-        # print(f"G_i_dotdot = {G_i_dotdot}")
-        G_dotdot = np.mean(G_i_dotdot, axis=0)
-        # print(f"G_dotdot = {G_dotdot}")
+        G_dotdot, theta_dotdot = self.solve(system)
 
         return G_dotdot, theta_dotdot
 
-    def compute_friction(self, G_dot, theta, theta_dot):
-        """
-        Compute frictions for constructing the matrix used in compute_accelerations().
-        :param G_dot: array
-        :param theta: array
-        :param theta_dot: array
-        :return: array, array
-        """
+    def compute_points_speed_acc(self, G_dot, theta, theta_dot):
+        A_dot_X = np.zeros(self.n + 1)
+        A_dot_Y = np.zeros(self.n + 1)
+        A_dotdot_X = np.zeros((self.n + 1, self.n + 3))
+        A_dotdot_Y = np.zeros((self.n + 1, self.n + 3))
 
-        normal = np.array([np.array([-np.sin(theta[i]), np.cos(theta[i])]) for i in range(self.n)])
-        # print(f"normal = {normal}")
+        G_dot_X = 0.
+        G_dot_Y = 0.
+        G_dotdot_X = np.zeros(self.n + 3)
+        G_dotdot_Y = np.zeros(self.n + 3)
 
-        M = np.zeros((self.n, self.n))
-        vecX = np.zeros(self.n)
-        vecY = np.zeros(self.n)
-        for i in range(self.n):
-            if i == 0:
-                M[0] = np.full(self.n, 1 / self.n)
-                vecX[0] = G_dot[0]
-                vecY[0] = G_dot[1]
-            else:
-                M[i][i] = 1
-                M[i][i - 1] = -1
-                vecX[i] = self.l_i / 2 * (theta_dot[i - 1] * normal[i - 1][0] + theta_dot[i] * normal[i][0])
-                vecY[i] = self.l_i / 2 * (theta_dot[i - 1] * normal[i - 1][1] + theta_dot[i] * normal[i][1])
-        # print(f"theta = {theta}")
-        # print(f"M = {M}")
-        # print(f"vecX = {vecX}")
-        G_i_dot_x = np.linalg.solve(M, vecX)
-        G_i_dot_y = np.linalg.solve(M, vecY)
-        G_i_dot = np.array([[G_i_dot_x[i], G_i_dot_y[i]] for i in range(self.n)])
-        # print(f"Method 2 - G_i_dot = {G_i_dot}")
+        # Frame of swimmer's head
+        for i in range(1, self.n + 1):
+            # A_dot_i = A_dot_{i-1} + l * theta_dot_{i-1} * n_{i-1}
+            A_dot_X[i] = A_dot_X[i - 1] - self.l_i * theta_dot[i - 1] * np.sin([theta[i - 1]])
+            A_dot_Y[i] = A_dot_Y[i - 1] + self.l_i * theta_dot[i - 1] * np.cos([theta[i - 1]])
 
-        F_friction = [-self.k * self.l_i * np.dot(G_i_dot[i], normal[i]) * normal[i] for i in range(self.n)]
-        M_friction = [-self.k * theta_dot[i] * self.l_i ** 3 / 12. for i in range(self.n)]
+            # A_dot_i = A_dot_{i-1} + l * theta_dotdot_{i-1} * n_{i-1} - l * theta_dot_{i-1}^2 * p_{i-1}
+            A_dotdot_X[i] = np.array(A_dotdot_X[i - 1], copy=True)
+            A_dotdot_Y[i] = np.array(A_dotdot_Y[i - 1], copy=True)
+            A_dotdot_X[i][2 + (i - 1)] -= self.l_i * np.sin(theta[i - 1])
+            A_dotdot_Y[i][2 + (i - 1)] += self.l_i * np.cos(theta[i - 1])
+            A_dotdot_X[i][self.n + 2] -= self.l_i * theta_dot[i - 1] ** 2 * np.cos(theta[i - 1])
+            A_dotdot_Y[i][self.n + 2] -= self.l_i * theta_dot[i - 1] ** 2 * np.sin(theta[i - 1])
 
-        # print(f"F_friction = {np.array(F_friction)}")
-        # print(f"M_friction = {M_friction}")
+            # G_dot
+            G_dot_X += 1 / self.n * (A_dot_X[i - 1] + A_dot_X[i]) / 2
+            G_dot_Y += 1 / self.n * (A_dot_Y[i - 1] + A_dot_Y[i]) / 2
 
-        return F_friction, M_friction
+            # G_dotdot
+            G_dotdot_X += 1 / self.n * (A_dotdot_X[i - 1] + A_dotdot_X[i]) / 2
+            G_dotdot_Y += 1 / self.n * (A_dotdot_Y[i - 1] + A_dotdot_Y[i]) / 2
+
+            # matprint(f"1.{i} A_dotdot_Y", A_dotdot_Y)
+
+        # Change of frame
+        A_dot_X += G_dot[0] - G_dot_X
+        A_dot_Y += G_dot[1] - G_dot_Y
+        for i in range(self.n + 1):
+            A_dotdot_X[i][0] += 1
+            A_dotdot_Y[i][1] += 1
+            A_dotdot_X[i] -= G_dotdot_X
+            A_dotdot_Y[i] -= G_dotdot_Y
+            # matprint(f"2.{i} A_dotdot_Y", A_dotdot_Y)
+
+
+        return A_dot_X, A_dot_Y, A_dotdot_X, A_dotdot_Y
+
+    def compute_joint_force(self, theta, A_dot_X, A_dot_Y, A_dotdot_X, A_dotdot_Y):
+        force_X = np.zeros((self.n + 1, self.n + 3))
+        force_Y = np.zeros((self.n + 1, self.n + 3))
+
+        for i in range(1, self.n + 1):
+            force_X[i] = force_X[i - 1] + self.m_i * (A_dotdot_X[i - 1] + A_dotdot_X[i]) / 2
+            force_Y[i] = force_Y[i - 1] + self.m_i * (A_dotdot_Y[i - 1] + A_dotdot_Y[i]) / 2
+            # F is the friction force
+            n_i = np.array([-np.sin(theta[i - 1]), np.cos(theta[i - 1])])
+            G_dot_i = np.array([(A_dot_X[i - 1] + A_dot_X[i]) / 2, (A_dot_Y[i - 1] + A_dot_Y[i]) / 2])
+            F = -self.k * self.l_i * np.dot(G_dot_i, n_i)
+            force_X[i][self.n + 2] -= F * n_i[0]
+            force_Y[i][self.n + 2] -= F * n_i[1]
+            # matprint(f"1.{i} force_X", force_X)
+
+        return force_X, force_Y
+
+    def compute_dynamic_matrix(self, theta, theta_dot, torque, force_X, force_Y):
+        system = np.zeros((self.n+2, self.n+3))
+
+        system[0] = force_X[self.n]
+        system[1] = force_Y[self.n]
+        for i in range(1, self.n+1):
+            system[2 + (i-1)] += self.l_i / 2 * (np.cos(theta[i-1]) * (force_Y[i] + force_Y[i-1])
+                                                - np.sin(theta[i-1]) * (force_X[i] + force_X[i-1]))
+            system[2 + (i-1)][2 + (i-1)] -= self.m_i * self.l_i**2 / 12
+            system[2 + (i-1)][self.n + 2] += self.k * theta_dot[i-1] * self.l_i**3 / 12
+            if i-2 >= 0:
+                system[2 + (i - 1)][self.n + 2] += torque[i-2]
+            if i-1 < self.n - 1:
+                system[2 + (i - 1)][self.n + 2] -= torque[i-1]
+
+        return system
+
+    def solve(self, system):
+        A = system[:self.n+2, :self.n+2]
+        B = - system[:, self.n+2]
+        X = np.linalg.solve(A, B)
+
+        return X[:2], X[2:]
 
     def get_state(self):
         """
@@ -230,7 +217,6 @@ def matprint(mat, fmt="g"):
         for i, y in enumerate(x):
             print(("{:" + str(col_maxes[i]) + fmt + "}").format(y), end="  ")
         print("")
-
 
 # @ray.remote
 class ARSAgent():
@@ -272,6 +258,7 @@ class ARSAgent():
             # self.env.render()
             action = self.select_action(policy, observation)
             observation, reward, done, info = self.env.step(action)
+            # print(f"State = {observation}")
             total_reward += reward
             if done:
                 return total_reward
@@ -338,7 +325,6 @@ class ARSAgent():
         self.env.close()
         return np.array(rewards)
 
-
 def plot_hyperparameters(alphas, nus):
     """
     Run training using several configurations of alpha and nu
@@ -352,8 +338,8 @@ def plot_hyperparameters(alphas, nus):
         for nu in nus:
             # agent = SwimmerAgent(n_it=500, alpha=alpha, nu=nu)
             # r_graphs.append((alpha, nu, agent.runTraining()))
-            agent = ARSAgent.remote(n_it=500, alpha=alpha, nu=nu)
-            r_graphs.append((alpha, nu, agent.runTraining.remote()))
+            agent = ARSAgent(n_it=500, alpha=alpha, nu=nu)
+            r_graphs.append((alpha, nu, agent.runTraining()))
 
     # Plot graphs
     for (alpha, nu, rewards) in r_graphs:
@@ -366,27 +352,43 @@ def plot_hyperparameters(alphas, nus):
     plt.savefig("../../results/ars_hyperparameters-.png")
     plt.show()
 
+def plot_random_seed(n_seed, n, h, n_iter, alpha=0.02, nu=0.02, N=1, b=1):
+    print(f"n={n}")
+    print(f"h={h}")
+    print(f"alpha={alpha}")
+    print(f"nu={nu}")
+    print(f"N={N}")
+    print(f"b={b}")
 
-def plot_random_seed(n_seed, alpha=0.02, nu=0.02, n=3, M=3, L=3):
     # Seeds
     r_graphs = []
     for i in range(n_seed):
-        agent = ARSAgent(n_it=100, seed=i, alpha=alpha, nu=nu, n=n, m_i=M/n, l_i=L/n, h=0.01)
+        agent = ARSAgent(n_it=n_iter, seed=i, alpha=alpha, nu=nu, n=n, h=h, N=N, b=b)
         r_graphs.append(agent.runTraining())
 
     # Plot graphs
     for rewards in r_graphs:
         # rewards = ray.get(rewards)
         plt.plot(rewards)
-    plt.title(f"n_seed={n_seed}, alpha={alpha}, nu={nu}, n={n}")
+    plt.title(f"n_seed={n_seed}, alpha={alpha}, nu={nu}, n={n}, h={h}, N={N}, b={b}")
     plt.xlabel("Iteration")
     plt.ylabel("Reward")
-    np.save(f"rewards_n={n}.png", np.array(r_graphs))
-    plt.savefig(f"ars_random_seeds_n={n}.png")
+    np.save(f"array/ars_n={n}_random_seeds={n_seed}_h={h}_alpha={alpha}_nu={nu}_N={N}_b={b}", np.array(r_graphs))
+    plt.savefig(f"new/ars_n={n}_random_seeds={n_seed}_h={h}_alpha={alpha}_nu={nu}_N={N}_b={b}.png")
     # plt.show()
+    plt.close()
 
+def test():
+    env = SwimmerEnv(n=3, h=0.01)
+    state = env.reset()
+    print(f"Initial state: {state}")
+
+    torque = np.full(env.action_space.shape[0], env.max_u/5)
+    G_dotdot, theta_dotdot = env.compute_accelerations(torque, env.G_dot, env.theta, env.theta_dot)
+    print(f"G_dotdot = {G_dotdot}")
+    print(f"theta_dotdot = {theta_dotdot}")
 
 if __name__ == '__main__':
     # ray.init(num_cpus=6)
-    for n in range(3, 8):
-        plot_random_seed(1, n=n)
+    plot_random_seed(n_seed=1, n=7, h=0.001, n_iter=1000, N=1, b=1, nu=0.01, alpha=0.015)
+    # test()
