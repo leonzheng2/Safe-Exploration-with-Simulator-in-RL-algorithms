@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 @ray.remote
 class SwimmerAgent():
 
-    def __init__(self, n_it=1000, N=1, b=1, H=1000, alpha=0.02, nu=0.02, seed=None):
+    def __init__(self, n_it=1000, N=1, b=1, H=1000, alpha=0.02, nu=0.02, select_V1=True, seed=None):
         self.env = gym.make("Swimmer-v2") # Environment
         self.policy = np.zeros((self.env.action_space.shape[0], self.env.observation_space.shape[0])) # Linear policy
         self.n_it = n_it
@@ -23,6 +23,11 @@ class SwimmerAgent():
         self.seed = seed
         np.random.seed(self.seed)
 
+        self.V1 = select_V1
+        self.mean = np.zeros(self.env.observation_space.shape[0])
+        self.covariance = np.identity(self.env.observation_space.shape[0])
+        self.saved_states = []
+
     def select_action(self, policy, observation):
         """
         Compute the action vector, using linear policy
@@ -31,7 +36,12 @@ class SwimmerAgent():
         :return: vector
         """
         observation = np.array(observation)
-        action = np.matmul(policy, observation)
+        if self.V1 is True:
+            return np.matmul(policy, observation)
+        # ARS V2
+        diag_covariance = np.diag(self.covariance)**(-1/2)
+        policy = np.matmul(policy, np.diag(diag_covariance))
+        action = np.matmul(policy, observation - self.mean)
         return action
 
     def rollout(self, policy):
@@ -46,6 +56,8 @@ class SwimmerAgent():
             # self.env.render()
             action = self.select_action(policy, observation)
             observation, reward, done, info = self.env.step(action)
+            if self.V1 is not True:
+                self.saved_states.append(observation)
             total_reward += reward
             if done:
                 return total_reward
@@ -58,7 +70,9 @@ class SwimmerAgent():
         :param rewards: array of float
         :return: bijection of range(len(deltas))
         """
-        return range(len(deltas))
+        max_rewards = [max(rewards[2*i], rewards[2*i+1]) for i in range(len(deltas))]
+        indices = np.argsort(max_rewards).tolist()
+        return indices[::-1]
 
     def update_policy(self, deltas, rewards, order):
         """
@@ -95,6 +109,12 @@ class SwimmerAgent():
             rewards.append(self.rollout(policy))
         order = self.sort_directions(deltas, rewards)
         self.update_policy(deltas, rewards, order)
+        if self.V1 is not True:
+            states_array = np.array(self.saved_states)
+            self.mean = np.mean(states_array, axis=0)
+            self.covariance = np.cov(states_array.T)
+            # print(f"mean = {self.mean}")
+            # print(f"cov = {self.covariance}")
 
     def runTraining(self):
         """
@@ -134,27 +154,27 @@ def plot_hyperparameters(alphas, nus):
     plt.legend(loc='upper left')
     plt.xlabel("Iteration")
     plt.ylabel("Reward")
-    plt.savefig("../../results/ars_hyperparameters-.png")
+    plt.savefig("results/ars_hyperparameters-.png")
     plt.show()
 
-def plot_random_seed(n_seed, alpha=0.02, nu=0.02):
+def plot_random_seed(n_seed, alpha, nu, N, b):
     # Seeds
     r_graphs = []
     for i in range(n_seed):
-        agent = SwimmerAgent.remote(n_it=500, seed=i, alpha=alpha, nu=nu)
+        agent = SwimmerAgent.remote(n_it=100, seed=i, alpha=alpha, nu=nu, N=N, b=b, select_V1=False)
         r_graphs.append(agent.runTraining.remote())
 
     # Plot graphs
     for rewards in r_graphs:
         rewards = ray.get(rewards)
         plt.plot(rewards)
-    plt.title(f"n_seed={n_seed}, alpha={alpha}, nu={nu}")
+    plt.title(f"n_seed={n_seed}, alpha={alpha}, nu={nu}, N={N}, b={b}")
     plt.xlabel("Iteration")
     plt.ylabel("Reward")
-    plt.savefig("../../results/ars_random_seeds-.png")
+    plt.savefig("results/ars_v1_t-1.png")
     plt.show()
 
 if __name__ == '__main__':
     ray.init()
-    plot_random_seed(50)
+    plot_random_seed(8, alpha=0.02, nu=0.02, N=3, b=2)
     
