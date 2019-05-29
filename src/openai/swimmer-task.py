@@ -433,9 +433,82 @@ def test():
     print(f"theta_dotdot = {theta_dotdot}")
 
 if __name__ == '__main__':
-    ray.init(num_cpus=6)
-    # for n in range(4,11):
-    #     plot(n_seed=6, n=n, h=0.001, n_iter=1000, N=1, b=1, nu=0.01, alpha=0.0075, m_i=10/n, l_i=10/n)
-    # test()
+    ray.init(num_cpus=8)
+    for n in [8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19]:
+        plot(n_seed=8, n=n, h=0.001, n_iter=1000, N=1, b=1, nu=0.01, alpha=0.0075, m_i=1., l_i=1.)
 
-    plot(n_seed=6, n=3, h=0.001, n_iter=100, N=1, b=1, nu=0.01, alpha=0.0075, m_i=1.0, l_i=1.0)
+    # plot(n_seed=6, n=10, h=0.001, n_iter=1000, N=1, b=1, nu=0.01, alpha=0.0075, m_i=1., l_i=1.)
+
+
+    # rewards = np.load("array/ars_n=3_random_seeds=6_h=0.001_alpha=0.0075_nu=0.01_N=1_b=1_n_iter=1000_m_i=1.0_l_i=1.0.npy")
+    # mean = np.mean(rewards, axis=0)
+    # grad = np.gradient(mean)
+    #
+    # k = 20
+    # smooth_mean = np.convolve(mean, np.ones((len(mean) // k,)) / (len(mean) // k), 'valid')
+    # max = np.max(smooth_mean)
+    # for alpha in [0.9, 0.95, 0.99]:
+    #     n_train = np.argmax(mean > alpha*max)
+    #     print(f"Time to achieve {alpha} of max: {n_train}")
+
+    # grad_smooth = np.gradient(smooth_mean)
+    # plt.plot(grad_smooth)
+    # plt.show()
+    #
+    # k = 10
+    # smooth_grad_smooth = np.convolve(grad_smooth, np.ones((len(grad_smooth) // k,)) / (len(grad_smooth) // k), 'valid')
+    # plt.plot(smooth_grad_smooth)
+    # plt.show()
+
+    # for k in [10, 20, 30, 40, 50]:
+    #     smooth_mean = np.convolve(mean, np.ones((len(mean) // k,)) / (len(mean) // k), 'valid')
+    #     x = np.linspace(len(mean)//k//2, len(grad) - len(mean)//k//2, len(mean) - len(mean)//k + 1)
+    #     plt.plot(mean, label="original")
+    #     # plt.title(f"k={k}")
+    #     plt.plot(x, smooth_mean, label="smooth")
+    #     plt.xlabel("Iteration")
+    #     plt.ylabel("Reward")
+    #     plt.legend()
+    #     plt.show()
+    #     print(f"Max of smooth k={k}: {np.max(smooth_mean)}")
+    # #
+    # # for alpha in [0.9, 0.95, 0.99]:
+    # #     n_train = np.argmax(mean > alpha*max)
+    # #     print(f"Time to achieve {alpha} of max: {n_train}")
+    # #
+    # # for k in [5, 8, 10, 12, 15]:
+    # #     smooth_grad = np.convolve(grad, np.ones((len(grad) // k,)) / (len(grad) // k), 'valid')
+    # #     # x = np.linspace(len(grad)//k//2, len(grad) - len(grad)//k//2, len(grad) - len(grad)//k + 1)
+    # #     # # print(x)
+    # #     # plt.plot(x, smooth, label="smooth")
+    # #     # plt.show()
+    # #     first_zero = np.argmax(smooth_grad < 0)
+    # #     if first_zero > 0:
+    # #         print(f"Time when smooth gradient (k={k}) is zero: {first_zero + len(grad)//k}")
+    # #     else:
+    # #         print(f"Time when smooth gradient (k={k}) is minimum: {np.argmin(smooth_grad) + len(grad)//k}")
+    # #
+    # #
+    # # # print(smooth)
+    # # # plt.plot(mean, label="mean")
+    # # # plt.plot(grad, label="grad")
+    # # # print(len(grad))
+    # # # print(len(smooth))
+    # # # x = np.linspace(len(grad)//k//2, len(grad) - len(grad)//k//2, len(grad) - len(grad)//k + 1)
+    # # # # print(x)
+    # # # plt.plot(x, smooth, label="smooth")
+    # # # plt.show()
+    # #
+    # n = [3, 4, 5, 6, 7, 10]
+    # train_90 = [587, 562, 665, 656, 618, 714]
+    # train_95 = [677, 676, 697, 745, 650, 809]
+    # train_99 = [868, 704, 777, 767, 781, 856]
+    #
+    # plt.plot(n, train_90, '-o', label="lambda=0.90")
+    # plt.plot(n, train_95, '-o', label="lambda=0.95")
+    # plt.plot(n, train_99, '-o', label="lambda=0.99")
+    # plt.title("Time to reach lambda*max of smoothed mean")
+    # plt.xlabel("Segments")
+    # plt.ylabel("Iterations")
+    # plt.legend()
+    # plt.show()
