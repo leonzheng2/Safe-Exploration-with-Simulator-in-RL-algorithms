@@ -16,12 +16,11 @@
 
 \section{State}
 
-In the current implementation of the environment, the state is stored in a double array $u$ of size $2n+4$, where $n$ is the number of segments.
+In the current implementation of the environment, the state is stored in a double array $u$ of size $2n+2$, where $n$ is the number of segments.
 \begin{itemize}
-    \item $A_0$, position of the swimmer head, is stored in $u_0, u_1$.
-    \item $\dot{A_0}$, velocity of the swimmer head, is stored in $u_2, u_3$.
-    \item $\theta_i$, the angle $i$ at the beginning of the segment $i$, is stored in $u_{3+i}$, for $i \in \{1, ..., n\}$.
-    \item $\dot{\theta}_i$, the first derivative of the angle $i$ at the beginning of the segment $i$, is stored in $u_{3+n+i}$, for $i \in \{1, ..., n\}$.
+    \item $G$, velocity of the swimmer's mass center, is stored in $u_0, u_1$.
+    \item $\theta_i$, the angle $i$ at the beginning of the segment $i$, is stored in $u_{2i}$, for $i \in \{1, ..., n\}$.
+    \item $\dot{\theta}_i$, the first derivative of the angle $i$ at the beginning of the segment $i$, is stored in $u_{2i+1}$, for $i \in \{1, ..., n\}$.
 \end{itemize}
 
 \section{Solving dynamics equations}
@@ -113,6 +112,7 @@ Using the same indices of the unknowns as $X$, left members of the previous equa
 
 Thus, we have the relation $AX = B$, and solving the linear system is done by using $X = A^{-1} B$.
 
-\bibliography{references}{}
+\bibliography{reference}{}
 \bibliographystyle{plain}
 \end{document}
+

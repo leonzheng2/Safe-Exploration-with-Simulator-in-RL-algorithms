@@ -38,7 +38,7 @@ class SwimmerARSAgent(Agent):
 			print(f"Number of obs: {self.n_obs}")
 			print("Task spec parsed!")
 		else:
-			print("Task Spec could not be parsed: "+taskSpecString)
+			print("Task Spec could not be parsed: "+taskSpec)
 
 		print("Initialization of training...")
 

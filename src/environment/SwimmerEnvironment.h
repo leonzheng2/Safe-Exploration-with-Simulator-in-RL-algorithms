@@ -41,11 +41,14 @@ const reward_observation_terminal_t *env_step(const action_t *this_action);
 void env_cleanup();
 const char* env_message(const char * message);
 
-void compute_accelerations(const std::vector<double> &torque, const Vector2d p_head, const Vector2d v_head, const std::vector<double> &p_angle, const std::vector<double> &v_angle, 
-							Vector2d& a_head, std::vector<double> &a_angle);
-void semi_implicit_euler(double h, Vector2d& p_head, std::vector<double> &p_angle, Vector2d& v_head, std::vector<double> &v_angle, const Vector2d& a_head, const std::vector<double> &a_angle);
-void updateState(observation_t& state, const action_t* action);
+void compute_accelerations(const std::vector<double> &torque, const Vector2d &G_dot, const std::vector<double> &theta, const std::vector<double> &theta_dot,
+							Vector2d &G_dotdot, std::vector<double> &theta_dotdot);
+void semi_implicit_euler(double h, std::vector<double> &theta, Vector2d& G_dot, std::vector<double> &theta_dot, 
+							const Vector2d& G_dotdot, const std::vector<double> &theta_dotdot);
+void updateState(observation_t &state, const action_t* action);
 double calculate_reward(const observation_t& state);
+void compute_friction(const Vector2d &G_dot, const std::vector<double> &theta, const std::vector<double> &theta_dot, 
+							std::vector<Vector2d> &F_friction, std::vector<double> &M_friction);
 int check_terminal(const observation_t& state);
 void save_state();
 void load_state();

@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 class SwimmerAgent():
 
     def __init__(self, n_it=1000, N=1, b=1, H=1000, alpha=0.02, nu=0.02, seed=None):
-        self.env = gym.make('Swimmer-v2') # Environment
+        self.env = gym.make("Swimmer-v2") # Environment
         self.policy = np.zeros((self.env.action_space.shape[0], self.env.observation_space.shape[0])) # Linear policy
         self.n_it = n_it
         self.N = N
@@ -157,3 +157,4 @@ def plot_random_seed(n_seed, alpha=0.02, nu=0.02):
 if __name__ == '__main__':
     ray.init()
     plot_random_seed(50)
+    
