@@ -4,7 +4,14 @@ import gym
 from gym import spaces
 import matplotlib.pyplot as plt
 import ray
+import argparse
 
+def matprint(mat, fmt="g"):
+    col_maxes = [max([len(("{:" + fmt + "}").format(x)) for x in col]) for col in mat.T]
+    for x in mat:
+        for i, y in enumerate(x):
+            print(("{:" + str(col_maxes[i]) + fmt + "}").format(y), end="  ")
+        print("")
 
 class SwimmerEnv(gym.Env):
     metadata = {'render.modes': ['human']}
@@ -211,14 +218,7 @@ class SwimmerEnv(gym.Env):
     def render(self, mode='human'):
         return
 
-def matprint(mat, fmt="g"):
-    col_maxes = [max([len(("{:" + fmt + "}").format(x)) for x in col]) for col in mat.T]
-    for x in mat:
-        for i, y in enumerate(x):
-            print(("{:" + str(col_maxes[i]) + fmt + "}").format(y), end="  ")
-        print("")
-
-# @ray.remote
+@ray.remote
 class ARSAgent():
 
     def __init__(self, n_it=1000, N=1, b=1, H=1000, alpha=0.02, nu=0.02, seed=None, n=3,
@@ -233,6 +233,7 @@ class ARSAgent():
         self.nu = nu
         self.seed = seed
         self.n = n
+        self.n_seed = seed
         np.random.seed(self.seed)
 
     def select_action(self, policy, observation):
@@ -319,62 +320,38 @@ class ARSAgent():
             self.runOneIteration()
             r = self.rollout(self.policy)
             rewards.append(r)
-            if j % (self.n_it // self.n_it) == 0:
-                print(f"------ alpha={self.alpha}; nu={self.nu}; seed={self.seed}; n={self.n} ------")
-                print(f"Iteration {j}: {r}")
+            if j % 10 == 0:
+                print(f"Seed {self.n_seed} ------ n={self.n}; h={self.env.h}; alpha={self.alpha}; nu={self.nu}; N={self.N}; b={self.b}; m_i={self.env.m_i}; l_i={self.env.l_i} ------ Iteration {j}/{self.n_it}: {r}")
         self.env.close()
         return np.array(rewards)
 
-def plot_hyperparameters(alphas, nus):
-    """
-    Run training using several configurations of alpha and nu
-    :param alphas: array
-    :param nus: array
-    :return: plot and save graphs
-    """
-    # Hyperparameters
-    r_graphs = []
-    for alpha in alphas:
-        for nu in nus:
-            # agent = SwimmerAgent(n_it=500, alpha=alpha, nu=nu)
-            # r_graphs.append((alpha, nu, agent.runTraining()))
-            agent = ARSAgent(n_it=500, alpha=alpha, nu=nu)
-            r_graphs.append((alpha, nu, agent.runTraining()))
-
-    # Plot graphs
-    for (alpha, nu, rewards) in r_graphs:
-        rewards = ray.get(rewards)
-        plt.plot(rewards, label=f"alpha={alpha}; nu={nu}")
-    plt.title("Hyperparameters tuning")
-    plt.legend(loc='upper left')
-    plt.xlabel("Iteration")
-    plt.ylabel("Reward")
-    plt.savefig("../../results/ars_hyperparameters-.png")
-    plt.show()
-
-def plot_random_seed(n_seed, n, h, n_iter, alpha=0.02, nu=0.02, N=1, b=1):
+# @ray.remote
+def plot(n_seed, n, h, n_iter, alpha, nu, N, b, m_i, l_i):
     print(f"n={n}")
     print(f"h={h}")
     print(f"alpha={alpha}")
     print(f"nu={nu}")
     print(f"N={N}")
     print(f"b={b}")
+    print(f"m_i={m_i}")
+    print(f"l_i={l_i}")
 
     # Seeds
     r_graphs = []
     for i in range(n_seed):
-        agent = ARSAgent(n_it=n_iter, seed=i, alpha=alpha, nu=nu, n=n, h=h, N=N, b=b)
-        r_graphs.append(agent.runTraining())
+        agent = ARSAgent.remote(n_it=n_iter, seed=i, alpha=alpha, nu=nu, n=n, h=h, N=N, b=b, m_i=m_i, l_i=l_i)
+        r_graphs.append(agent.runTraining.remote())
 
     # Plot graphs
+    plt.figure(figsize=(10,8))
     for rewards in r_graphs:
-        # rewards = ray.get(rewards)
+        rewards = ray.get(rewards)
         plt.plot(rewards)
-    plt.title(f"n_seed={n_seed}, alpha={alpha}, nu={nu}, n={n}, h={h}, N={N}, b={b}")
+    plt.title(f"n={n}_random_seeds={n_seed}_h={h}_alpha={alpha}_nu={nu}_N={N}_b={b}, n_iter={n_iter}, m_i={m_i}, l_i={l_i}")
     plt.xlabel("Iteration")
     plt.ylabel("Reward")
-    np.save(f"array/ars_n={n}_random_seeds={n_seed}_h={h}_alpha={alpha}_nu={nu}_N={N}_b={b}", np.array(r_graphs))
-    plt.savefig(f"new/ars_n={n}_random_seeds={n_seed}_h={h}_alpha={alpha}_nu={nu}_N={N}_b={b}.png")
+    np.save(f"array/ars_n={n}_random_seeds={n_seed}_h={h}_alpha={alpha}_nu={nu}_N={N}_b={b}, n_iter={n_iter}, m_i={m_i}, l_i={l_i}", np.array(r_graphs))
+    plt.savefig(f"new/ars_n={n}_random_seeds={n_seed}_h={h}_alpha={alpha}_nu={nu}_N={N}_b={b}, n_iter={n_iter}, m_i={m_i}, l_i={l_i}.png")
     # plt.show()
     plt.close()
 
@@ -389,6 +366,7 @@ def test():
     print(f"theta_dotdot = {theta_dotdot}")
 
 if __name__ == '__main__':
-    # ray.init(num_cpus=6)
-    plot_random_seed(n_seed=1, n=7, h=0.001, n_iter=1000, N=1, b=1, nu=0.01, alpha=0.015)
+    ray.init(num_cpus=5)
+    n = 10
+    plot(n_seed=10, n=n, h=0.001, n_iter=100, N=1, b=1, nu=0.01, alpha=0.0075, m_i=10/n, l_i=10/n)
     # test()
