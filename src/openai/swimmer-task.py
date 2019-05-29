@@ -219,22 +219,69 @@ class SwimmerEnv(gym.Env):
         return
 
 @ray.remote
+class Worker():
+
+    def __init__(self, policy, n, H, l_i, m_i, h):
+        # print(f"New worker - {policy[0][0]}")
+        self.policy = policy
+        self.H = H
+        self.env = SwimmerEnv(n=n, l_i=l_i, m_i=m_i, h=h)
+
+    def select_action(self, observation):
+        """
+        Compute the action vector, using linear policy
+        :param observation: vector
+        :return: vector
+        """
+        observation = np.array(observation)
+        action = np.matmul(self.policy, observation)
+        return action
+
+    def rollout(self):
+        """
+        Doing self.H steps following the given policy, and return the final total reward.
+        :return: float
+        """
+        total_reward = 0
+        observation = self.env.reset()
+        for t in range(self.H):
+            # self.env.render()
+            action = self.select_action(observation)
+            observation, reward, done, info = self.env.step(action)
+            # print(f"State = {observation}")
+            total_reward += reward
+            if done:
+                return total_reward
+        return total_reward
+
+
+
+@ray.remote
 class ARSAgent():
 
-    def __init__(self, n_it=1000, N=1, b=1, H=1000, alpha=0.02, nu=0.02, seed=None, n=3,
-                 l_i=1., m_i=1., h=0.01):
+    def __init__(self, n_it=1000,
+                 N=1, b=1, alpha=0.02, nu=0.02,
+                 n=3, H=1000, l_i=1., m_i=1., h=0.01,
+                 seed=None):
         self.env = SwimmerEnv(n=n, l_i=l_i, m_i=m_i, h=h)  # Environment
         self.policy = np.zeros((self.env.action_space.shape[0], self.env.observation_space.shape[0]))  # Linear policy
         self.n_it = n_it
+
+        # Agent parameters
         self.N = N
         self.b = b
-        self.H = H
         self.alpha = alpha
         self.nu = nu
-        self.seed = seed
+
+        # Environment parameters
         self.n = n
+        self.H = H
+        self.l_i = l_i
+        self.m_i = m_i
+        self.h = h
+
         self.n_seed = seed
-        np.random.seed(self.seed)
+        np.random.seed(self.n_seed)
 
     def select_action(self, policy, observation):
         """
@@ -263,6 +310,7 @@ class ARSAgent():
             total_reward += reward
             if done:
                 return total_reward
+        self.env.close()
         return total_reward
 
     def sort_directions(self, deltas, rewards):
@@ -272,7 +320,9 @@ class ARSAgent():
         :param rewards: array of float
         :return: bijection of range(len(deltas))
         """
-        return range(len(deltas))
+        max_rewards = [max(rewards[2*i], rewards[2*i+1]) for i in range(len(deltas))]
+        indices = np.argsort(max_rewards).tolist()
+        return indices[::-1]
 
     def update_policy(self, deltas, rewards, order):
         """
@@ -306,7 +356,9 @@ class ARSAgent():
                 policy = self.policy + self.nu * deltas[i // 2]
             else:
                 policy = self.policy - self.nu * deltas[i // 2]
-            rewards.append(self.rollout(policy))
+            worker = Worker.remote(policy, self.n, self.H, self.l_i, self.m_i, self.h)
+            rewards.append(worker.rollout.remote())
+        rewards = ray.get(rewards)
         order = self.sort_directions(deltas, rewards)
         self.update_policy(deltas, rewards, order)
 
@@ -366,7 +418,12 @@ def test():
     print(f"theta_dotdot = {theta_dotdot}")
 
 if __name__ == '__main__':
-    ray.init(num_cpus=5)
-    n = 10
-    plot(n_seed=10, n=n, h=0.001, n_iter=100, N=1, b=1, nu=0.01, alpha=0.0075, m_i=10/n, l_i=10/n)
+    ray.init(num_cpus=6)
+    # for n in range(3,11):
+    #     plot(n_seed=12, n=n, h=0.001, n_iter=1000, N=1, b=1, nu=0.01, alpha=0.0075, m_i=10/n, l_i=10/n)
     # test()
+
+    # rewards = np.load("array/")
+    # mean = np.mean()
+
+    plot(n_seed=1, n=10, h=0.001, n_iter=100, N=1, b=1, nu=0.01, alpha=0.0075, m_i=1., l_i=1.)
