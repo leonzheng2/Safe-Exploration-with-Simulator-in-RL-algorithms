@@ -356,9 +356,10 @@ class ARSAgent():
                 policy = self.policy + self.nu * deltas[i // 2]
             else:
                 policy = self.policy - self.nu * deltas[i // 2]
-            worker = Worker.remote(policy, self.n, self.H, self.l_i, self.m_i, self.h)
-            rewards.append(worker.rollout.remote())
-        rewards = ray.get(rewards)
+            rewards.append(self.rollout(policy))
+        #     worker = Worker.remote(policy, self.n, self.H, self.l_i, self.m_i, self.h)
+        #     rewards.append(worker.rollout.remote())
+        # rewards = ray.get(rewards)
         order = self.sort_directions(deltas, rewards)
         self.update_policy(deltas, rewards, order)
 
@@ -393,17 +394,31 @@ def plot(n_seed, n, h, n_iter, alpha, nu, N, b, m_i, l_i):
     for i in range(n_seed):
         agent = ARSAgent.remote(n_it=n_iter, seed=i, alpha=alpha, nu=nu, n=n, h=h, N=N, b=b, m_i=m_i, l_i=l_i)
         r_graphs.append(agent.runTraining.remote())
+    r_graphs = np.array(ray.get(r_graphs))
 
     # Plot graphs
     plt.figure(figsize=(10,8))
     for rewards in r_graphs:
-        rewards = ray.get(rewards)
         plt.plot(rewards)
-    plt.title(f"n={n}_random_seeds={n_seed}_h={h}_alpha={alpha}_nu={nu}_N={N}_b={b}, n_iter={n_iter}, m_i={m_i}, l_i={l_i}")
+    plt.title(f"n={n}, seeds={n_seed}, h={h}, alpha={alpha}, nu={nu}, N={N}, b={b}, n_iter={n_iter}, m_i={round(m_i, 2)}, l_i={round(l_i,2)}")
     plt.xlabel("Iteration")
     plt.ylabel("Reward")
-    np.save(f"array/ars_n={n}_random_seeds={n_seed}_h={h}_alpha={alpha}_nu={nu}_N={N}_b={b}, n_iter={n_iter}, m_i={m_i}, l_i={l_i}", np.array(r_graphs))
-    plt.savefig(f"new/ars_n={n}_random_seeds={n_seed}_h={h}_alpha={alpha}_nu={nu}_N={N}_b={b}, n_iter={n_iter}, m_i={m_i}, l_i={l_i}.png")
+    np.save(f"array/ars_n={n}_random_seeds={n_seed}_h={h}_alpha={alpha}_nu={nu}_N={N}_b={b}_n_iter={n_iter}_m_i={round(m_i, 2)}_l_i={round(l_i,2)}", r_graphs)
+    plt.savefig(f"new/ars_n={n}_random_seeds={n_seed}_h={h}_alpha={alpha}_nu={nu}_N={N}_b={b}_n_iter={n_iter}_m_i={round(m_i, 2)}_l_i={round(l_i,2)}.png")
+    # plt.show()
+    plt.close()
+
+    # Plot mean and std
+    plt.figure(figsize=(10,8))
+    x = np.linspace(0, n_iter-1, n_iter)
+    mean = np.mean(r_graphs, axis=0)
+    std = np.std(r_graphs, axis=0)
+    plt.plot(x, mean, 'k', color='#CC4F1B')
+    plt.fill_between(x, mean-std, mean+std, alpha=0.5, edgecolor='#CC4F1B', facecolor='#FF9848')
+    plt.title(f"n={n}, seeds={n_seed}, h={h}, alpha={alpha}, nu={nu}, N={N}, b={b}, n_iter={n_iter}, m_i={round(m_i, 2)}, l_i={round(l_i,2)}")
+    plt.xlabel("Iteration")
+    plt.ylabel("Reward")
+    plt.savefig(f"new/ars_n={n}_random_seeds={n_seed}_h={h}_alpha={alpha}_nu={nu}_N={N}_b={b}_n_iter={n_iter}_m_i={round(m_i, 2)}_l_i={round(l_i,2)}_average.png")
     # plt.show()
     plt.close()
 
@@ -419,11 +434,8 @@ def test():
 
 if __name__ == '__main__':
     ray.init(num_cpus=6)
-    # for n in range(3,11):
-    #     plot(n_seed=12, n=n, h=0.001, n_iter=1000, N=1, b=1, nu=0.01, alpha=0.0075, m_i=10/n, l_i=10/n)
+    # for n in range(4,11):
+    #     plot(n_seed=6, n=n, h=0.001, n_iter=1000, N=1, b=1, nu=0.01, alpha=0.0075, m_i=10/n, l_i=10/n)
     # test()
 
-    # rewards = np.load("array/")
-    # mean = np.mean()
-
-    plot(n_seed=1, n=10, h=0.001, n_iter=100, N=1, b=1, nu=0.01, alpha=0.0075, m_i=1., l_i=1.)
+    plot(n_seed=6, n=3, h=0.001, n_iter=100, N=1, b=1, nu=0.01, alpha=0.0075, m_i=1.0, l_i=1.0)
