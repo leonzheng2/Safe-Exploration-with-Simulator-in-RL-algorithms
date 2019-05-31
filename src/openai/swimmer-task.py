@@ -254,14 +254,13 @@ class Worker():
                 return total_reward
         return total_reward
 
-
-
 @ray.remote
 class ARSAgent():
 
     def __init__(self, n_it=1000,
                  N=1, b=1, alpha=0.02, nu=0.02,
                  n=3, H=1000, l_i=1., m_i=1., h=0.01,
+                 select_V1 = True,
                  seed=None):
         self.env = SwimmerEnv(n=n, l_i=l_i, m_i=m_i, h=h)  # Environment
         self.policy = np.zeros((self.env.action_space.shape[0], self.env.observation_space.shape[0]))  # Linear policy
@@ -280,6 +279,12 @@ class ARSAgent():
         self.m_i = m_i
         self.h = h
 
+        # V2
+        self.V1 = select_V1
+        self.mean = np.zeros(self.env.observation_space.shape[0])
+        self.covariance = np.identity(self.env.observation_space.shape[0])
+        self.saved_states = []
+
         self.n_seed = seed
         np.random.seed(self.n_seed)
 
@@ -291,7 +296,12 @@ class ARSAgent():
         :return: vector
         """
         observation = np.array(observation)
-        action = np.matmul(policy, observation)
+        if self.V1 is True:
+            return np.matmul(policy, observation)
+        # ARS V2
+        diag_covariance = np.diag(self.covariance)**(-1/2)
+        policy = np.matmul(policy, np.diag(diag_covariance))
+        action = np.matmul(policy, observation - self.mean)
         return action
 
     def rollout(self, policy):
@@ -306,11 +316,11 @@ class ARSAgent():
             # self.env.render()
             action = self.select_action(policy, observation)
             observation, reward, done, info = self.env.step(action)
-            # print(f"State = {observation}")
+            if self.V1 is not True:
+                self.saved_states.append(observation)
             total_reward += reward
             if done:
                 return total_reward
-        self.env.close()
         return total_reward
 
     def sort_directions(self, deltas, rewards):
@@ -363,6 +373,13 @@ class ARSAgent():
         order = self.sort_directions(deltas, rewards)
         self.update_policy(deltas, rewards, order)
 
+        if self.V1 is not True:
+            states_array = np.array(self.saved_states)
+            self.mean = np.mean(states_array, axis=0)
+            self.covariance = np.cov(states_array.T)
+            # print(f"mean = {self.mean}")
+            # print(f"cov = {self.covariance}")
+
     def runTraining(self):
         """
         Run the training. After each iteration, evaluate the current policy by doing one rollout. Save the obtained reward after each iteration.
@@ -374,12 +391,13 @@ class ARSAgent():
             r = self.rollout(self.policy)
             rewards.append(r)
             if j % 10 == 0:
-                print(f"Seed {self.n_seed} ------ n={self.n}; h={self.env.h}; alpha={self.alpha}; nu={self.nu}; N={self.N}; b={self.b}; m_i={self.env.m_i}; l_i={self.env.l_i} ------ Iteration {j}/{self.n_it}: {r}")
+                print(f"Seed {self.n_seed} ------ V1 = {self.V1}; n={self.n}; h={self.env.h}; alpha={self.alpha}; nu={self.nu}; N={self.N}; b={self.b}; m_i={self.env.m_i}; l_i={self.env.l_i} ------ Iteration {j}/{self.n_it}: {r}")
         self.env.close()
         return np.array(rewards)
 
 # @ray.remote
-def plot(n_seed, n, h, n_iter, alpha, nu, N, b, m_i, l_i):
+def plot(select_V1, n_seed, n, h, n_iter, alpha, nu, N, b, m_i, l_i):
+    print(f"select_V1={select_V1}")
     print(f"n={n}")
     print(f"h={h}")
     print(f"alpha={alpha}")
@@ -392,7 +410,7 @@ def plot(n_seed, n, h, n_iter, alpha, nu, N, b, m_i, l_i):
     # Seeds
     r_graphs = []
     for i in range(n_seed):
-        agent = ARSAgent.remote(n_it=n_iter, seed=i, alpha=alpha, nu=nu, n=n, h=h, N=N, b=b, m_i=m_i, l_i=l_i)
+        agent = ARSAgent.remote(select_V1=select_V1, n_it=n_iter, seed=i, alpha=alpha, nu=nu, n=n, h=h, N=N, b=b, m_i=m_i, l_i=l_i)
         r_graphs.append(agent.runTraining.remote())
     r_graphs = np.array(ray.get(r_graphs))
 
@@ -400,11 +418,11 @@ def plot(n_seed, n, h, n_iter, alpha, nu, N, b, m_i, l_i):
     plt.figure(figsize=(10,8))
     for rewards in r_graphs:
         plt.plot(rewards)
-    plt.title(f"n={n}, seeds={n_seed}, h={h}, alpha={alpha}, nu={nu}, N={N}, b={b}, n_iter={n_iter}, m_i={round(m_i, 2)}, l_i={round(l_i,2)}")
+    plt.title(f"V1={select_V1}, n={n}, seeds={n_seed}, h={h}, alpha={alpha}, nu={nu}, N={N}, b={b}, n_iter={n_iter}, m_i={round(m_i, 2)}, l_i={round(l_i,2)}")
     plt.xlabel("Iteration")
     plt.ylabel("Reward")
-    np.save(f"array/ars_n={n}_random_seeds={n_seed}_h={h}_alpha={alpha}_nu={nu}_N={N}_b={b}_n_iter={n_iter}_m_i={round(m_i, 2)}_l_i={round(l_i,2)}", r_graphs)
-    plt.savefig(f"new/ars_n={n}_random_seeds={n_seed}_h={h}_alpha={alpha}_nu={nu}_N={N}_b={b}_n_iter={n_iter}_m_i={round(m_i, 2)}_l_i={round(l_i,2)}.png")
+    np.save(f"array/ars_n={n}_V1={select_V1}_random_seeds={n_seed}_h={h}_alpha={alpha}_nu={nu}_N={N}_b={b}_n_iter={n_iter}_m_i={round(m_i, 2)}_l_i={round(l_i,2)}", r_graphs)
+    plt.savefig(f"new/ars_n={n}_V1={select_V1}_random_seeds={n_seed}_h={h}_alpha={alpha}_nu={nu}_N={N}_b={b}_n_iter={n_iter}_m_i={round(m_i, 2)}_l_i={round(l_i,2)}.png")
     # plt.show()
     plt.close()
 
@@ -418,38 +436,62 @@ def plot(n_seed, n, h, n_iter, alpha, nu, N, b, m_i, l_i):
     plt.title(f"n={n}, seeds={n_seed}, h={h}, alpha={alpha}, nu={nu}, N={N}, b={b}, n_iter={n_iter}, m_i={round(m_i, 2)}, l_i={round(l_i,2)}")
     plt.xlabel("Iteration")
     plt.ylabel("Reward")
-    plt.savefig(f"new/ars_n={n}_random_seeds={n_seed}_h={h}_alpha={alpha}_nu={nu}_N={N}_b={b}_n_iter={n_iter}_m_i={round(m_i, 2)}_l_i={round(l_i,2)}_average.png")
+    plt.savefig(f"new/ars_n={n}_V1={select_V1}_random_seeds={n_seed}_h={h}_alpha={alpha}_nu={nu}_N={N}_b={b}_n_iter={n_iter}_m_i={round(m_i, 2)}_l_i={round(l_i,2)}_average.png")
     # plt.show()
     plt.close()
 
-def test():
-    env = SwimmerEnv(n=3, h=0.01)
-    state = env.reset()
-    print(f"Initial state: {state}")
-
-    torque = np.full(env.action_space.shape[0], env.max_u/5)
-    G_dotdot, theta_dotdot = env.compute_accelerations(torque, env.G_dot, env.theta, env.theta_dot)
-    print(f"G_dotdot = {G_dotdot}")
-    print(f"theta_dotdot = {theta_dotdot}")
-
 if __name__ == '__main__':
-    ray.init(num_cpus=8)
-    for n in [8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19]:
-        plot(n_seed=8, n=n, h=0.001, n_iter=1000, N=1, b=1, nu=0.01, alpha=0.0075, m_i=1., l_i=1.)
+    ray.init(num_cpus=7)
+    for n in range(4, 10):
+        plot(select_V1=False, n_seed=7, n=n, h=0.001, n_iter=500, N=4, b=2, nu=0.01, alpha=0.0075, m_i=1., l_i=1.)
 
-    # plot(n_seed=6, n=10, h=0.001, n_iter=1000, N=1, b=1, nu=0.01, alpha=0.0075, m_i=1., l_i=1.)
+    # plot(select_V1=False, n_seed=4, n=3, h=0.001, n_iter=100, N=4, b=2, nu=0.01, alpha=0.0075, m_i=1., l_i=1.)
 
-
-    # rewards = np.load("array/ars_n=3_random_seeds=6_h=0.001_alpha=0.0075_nu=0.01_N=1_b=1_n_iter=1000_m_i=1.0_l_i=1.0.npy")
-    # mean = np.mean(rewards, axis=0)
-    # grad = np.gradient(mean)
+    # n_list = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    # max_rewards = []
+    # train_90 = []
+    # train_95 = []
+    # train_99 = []
     #
-    # k = 20
-    # smooth_mean = np.convolve(mean, np.ones((len(mean) // k,)) / (len(mean) // k), 'valid')
-    # max = np.max(smooth_mean)
-    # for alpha in [0.9, 0.95, 0.99]:
-    #     n_train = np.argmax(mean > alpha*max)
-    #     print(f"Time to achieve {alpha} of max: {n_train}")
+    # for n in n_list:
+    #     if n == 8 or n == 9 or n>10:
+    #         rewards = np.load(f"save/n/ars_n={n}_random_seeds=8_h=0.001_alpha=0.0075_nu=0.01_N=1_b=1_n_iter=1000_m_i=1.0_l_i=1.0.npy")
+    #     else:
+    #         rewards = np.load(f"save/n/ars_n={n}_random_seeds=6_h=0.001_alpha=0.0075_nu=0.01_N=1_b=1_n_iter=1000_m_i=1.0_l_i=1.0.npy")
+    #
+    #     mean = np.mean(rewards, axis=0)
+    #     max_rewards.append(np.max(mean))
+    #
+    #     k = 20
+    #     smooth_mean = np.convolve(mean, np.ones((len(mean) // k,)) / (len(mean) // k), 'valid')
+    #     max = np.max(smooth_mean)
+    #     for alpha in [0.9, 0.95, 0.99]:
+    #         n_train = np.argmax(mean > alpha*max)
+    #         print(f"Time to achieve {alpha} of max: {n_train}")
+    #         if alpha == 0.9:
+    #             train_90.append(n_train)
+    #         elif alpha == 0.95:
+    #             train_95.append(n_train)
+    #         else:
+    #             train_99.append(n_train)
+    #
+    # plt.plot(n_list, train_90, '-o', label="lambda=0.90")
+    # plt.plot(n_list, train_95, '-o', label="lambda=0.95")
+    # plt.plot(n_list, train_99, '-o', label="lambda=0.99")
+    # plt.title("Time to reach lambda*max of smoothed mean")
+    # plt.xlabel("Segments")
+    # plt.ylabel("Iterations")
+    # plt.legend()
+    # plt.show()
+    # plt.close()
+    #
+    # plt.plot(n_list, max_rewards, '-o', label="max_rewards")
+    # plt.title("Max average reward achieved with ARS")
+    # plt.xlabel("Segments")
+    # plt.ylabel("Max average reward")
+    # plt.legend()
+    # plt.show()
+    # plt.close()
 
     # grad_smooth = np.gradient(smooth_mean)
     # plt.plot(grad_smooth)
@@ -459,7 +501,7 @@ if __name__ == '__main__':
     # smooth_grad_smooth = np.convolve(grad_smooth, np.ones((len(grad_smooth) // k,)) / (len(grad_smooth) // k), 'valid')
     # plt.plot(smooth_grad_smooth)
     # plt.show()
-
+    #
     # for k in [10, 20, 30, 40, 50]:
     #     smooth_mean = np.convolve(mean, np.ones((len(mean) // k,)) / (len(mean) // k), 'valid')
     #     x = np.linspace(len(mean)//k//2, len(grad) - len(mean)//k//2, len(mean) - len(mean)//k + 1)
@@ -471,44 +513,33 @@ if __name__ == '__main__':
     #     plt.legend()
     #     plt.show()
     #     print(f"Max of smooth k={k}: {np.max(smooth_mean)}")
-    # #
-    # # for alpha in [0.9, 0.95, 0.99]:
-    # #     n_train = np.argmax(mean > alpha*max)
-    # #     print(f"Time to achieve {alpha} of max: {n_train}")
-    # #
-    # # for k in [5, 8, 10, 12, 15]:
-    # #     smooth_grad = np.convolve(grad, np.ones((len(grad) // k,)) / (len(grad) // k), 'valid')
-    # #     # x = np.linspace(len(grad)//k//2, len(grad) - len(grad)//k//2, len(grad) - len(grad)//k + 1)
-    # #     # # print(x)
-    # #     # plt.plot(x, smooth, label="smooth")
-    # #     # plt.show()
-    # #     first_zero = np.argmax(smooth_grad < 0)
-    # #     if first_zero > 0:
-    # #         print(f"Time when smooth gradient (k={k}) is zero: {first_zero + len(grad)//k}")
-    # #     else:
-    # #         print(f"Time when smooth gradient (k={k}) is minimum: {np.argmin(smooth_grad) + len(grad)//k}")
-    # #
-    # #
-    # # # print(smooth)
-    # # # plt.plot(mean, label="mean")
-    # # # plt.plot(grad, label="grad")
-    # # # print(len(grad))
-    # # # print(len(smooth))
-    # # # x = np.linspace(len(grad)//k//2, len(grad) - len(grad)//k//2, len(grad) - len(grad)//k + 1)
-    # # # # print(x)
-    # # # plt.plot(x, smooth, label="smooth")
-    # # # plt.show()
-    # #
-    # n = [3, 4, 5, 6, 7, 10]
-    # train_90 = [587, 562, 665, 656, 618, 714]
-    # train_95 = [677, 676, 697, 745, 650, 809]
-    # train_99 = [868, 704, 777, 767, 781, 856]
     #
-    # plt.plot(n, train_90, '-o', label="lambda=0.90")
-    # plt.plot(n, train_95, '-o', label="lambda=0.95")
-    # plt.plot(n, train_99, '-o', label="lambda=0.99")
-    # plt.title("Time to reach lambda*max of smoothed mean")
-    # plt.xlabel("Segments")
-    # plt.ylabel("Iterations")
-    # plt.legend()
-    # plt.show()
+    # for alpha in [0.9, 0.95, 0.99]:
+    #     n_train = np.argmax(mean > alpha*max)
+    #     print(f"Time to achieve {alpha} of max: {n_train}")
+    #
+    # for k in [5, 8, 10, 12, 15]:
+    #     smooth_grad = np.convolve(grad, np.ones((len(grad) // k,)) / (len(grad) // k), 'valid')
+    #     # x = np.linspace(len(grad)//k//2, len(grad) - len(grad)//k//2, len(grad) - len(grad)//k + 1)
+    #     # # print(x)
+    #     # plt.plot(x, smooth, label="smooth")
+    #     # plt.show()
+    #     first_zero = np.argmax(smooth_grad < 0)
+    #     if first_zero > 0:
+    #         print(f"Time when smooth gradient (k={k}) is zero: {first_zero + len(grad)//k}")
+    #     else:
+    #         print(f"Time when smooth gradient (k={k}) is minimum: {np.argmin(smooth_grad) + len(grad)//k}")
+    #
+    #
+    # # print(smooth)
+    # # plt.plot(mean, label="mean")
+    # # plt.plot(grad, label="grad")
+    # # print(len(grad))
+    # # print(len(smooth))
+    # # x = np.linspace(len(grad)//k//2, len(grad) - len(grad)//k//2, len(grad) - len(grad)//k + 1)
+    # # # print(x)
+    # # plt.plot(x, smooth, label="smooth")
+    # # plt.show()
+    #
+
+
