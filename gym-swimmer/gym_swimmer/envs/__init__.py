@@ -1,1 +1,1 @@
-from gym_swimmer.envs.swimmer_env import SwimmerEnv
+from gym_swimmer.envs.remy_swimmer_env import SwimmerEnv

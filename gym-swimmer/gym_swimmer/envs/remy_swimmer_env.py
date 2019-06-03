@@ -10,21 +10,32 @@ from gym import spaces
 
 
 class SwimmerEnv(gym.Env):
+    metadata = {'render.modes': ['human']}
 
     def __init__(self):
+        """
+        Constructor
+        :param direction: array of length 2
+        :param n: int
+        :param max_u: float
+        :param l_i: float
+        :param k: float
+        :param m_i: float
+        :param h: float
+        """
         # Parameters of the environment
         self.direction = np.array([1., 0.])
-        self.n = 5
+        self.n = 3
         self.max_u = 5.
         self.l_i = 1.
         self.k = 10.
         self.m_i = 1.
-        self.h = 0.003
+        self.h = 0.001
 
         # Observation and action space
         n_obs = 2 * self.n + 2
         n_action = self.n - 1
-        inf = float("inf")
+        inf = 1000
         self.observation_space = spaces.Box(-inf, inf, shape=(n_obs,), dtype=np.float32)
         self.action_space = spaces.Box(-self.max_u, self.max_u, shape=(n_action,), dtype=np.float32)
 
@@ -47,9 +58,9 @@ class SwimmerEnv(gym.Env):
         Reset the environment to the initial state. Return the corresponding observation.
         :return: array
         """
-        self.G_dot = np.full(2, 0.001)
-        self.theta = np.full(self.n, 0.001)
-        self.theta_dot = np.full(self.n, 0.001)
+        self.G_dot = np.full(2, 0.)
+        self.theta = np.full(self.n, math.pi/2)
+        self.theta_dot = np.full(self.n, 0.)
         return self.get_state()
 
     def next_observation(self, torque, G_dot, theta, theta_dot):
