@@ -44,6 +44,6 @@ pylint:
    image: iwane/pyflake8
    stage: test
    script:
-       - flake8 --ignore=E111,E114,E402,H233,D400,D203,I100 --exclude=__init__.py */*.py */*/*.py
+       - flake8 --ignore=E111,E114,E402,H233,D400,D203,I100,W504 --exclude=__init__.py,register.py,setup.py */*.py */*/*.py */*/*/*.py
 
 
