@@ -4,6 +4,7 @@ import ray
 from dataclasses import dataclass
 from gym.envs.swimmer.remy_swimmer_env import SwimmerEnv
 
+
 @dataclass
 class EnvParam:
   # Environment parameters
@@ -27,64 +28,87 @@ class ARSParam:
   nu: float
 
 
-@ray.remote
-class Worker():
+class Estimator:
 
-  def __init__(self, envName, policy, n, H, l_i, m_i, h):
-    """
-    Constructor.
-    :param envName: string
-    :param policy: matrix
-    :param n: int
-    :param H: int
-    :param l_i: float
-    :param m_i: float
-    :param h: float
-    """
-    # print(f"New worker - {policy[0][0]}")
-    self.policy = policy
-    self.H = H
-    self.env = SwimmerEnv(envName=envName, n=n, l_i=l_i, m_i=m_i, h=h)
+  def __init__(self, real_traj):
+    self.real_traj = real_traj
 
-  def select_action(self, observation):
+  def add_trajectory(self, trajectory, policy):
+    self.real_traj.append((trajectory, policy))
+
+  def estimate_real_env_param(self, real_env):
+    # TODO
+    env_param = real_env
+    return env_param
+
+
+# @ray.remote
+class Environment():
+
+  def __init__(self, env_param):
+    self.env_param = env_param
+    self.env = SwimmerEnv(envName=env_param.name, n=env_param.n,
+                          l_i=env_param.l_i, m_i=env_param.m_i, h=env_param.h)
+
+  def select_action(self, policy, observation, covariance=None, mean=None):
     """
     Compute the action vector, using linear policy
+
+    :param policy: matrix
     :param observation: vector
     :return: vector
     """
     observation = np.array(observation)
-    action = np.matmul(self.policy, observation)
+    if covariance == None or mean == None:  # ARS V1
+      return np.matmul(policy, observation)
+
+    # Else, ARS V2
+    diag_covariance = np.diag(covariance) ** (-1 / 2)
+    policy = np.matmul(policy, np.diag(diag_covariance))
+    action = np.matmul(policy, observation - mean)
     return action
 
-  def rollout(self):
+  def rollout(self, policy, covariance=None, mean=None):
     """
     Doing self.H steps following the given policy,
     and return the final total reward.
+
+    :param policy: matrix
     :return: float
     """
     total_reward = 0
     observation = self.env.reset()
-    for t in range(self.H):
+    saved_states = []
+    for t in range(self.env_param.H):
       # self.env.render()
-      action = self.select_action(observation)
+      action = self.select_action(policy, observation, covariance=covariance,
+                                  mean=mean)
       observation, reward, done, info = self.env.step(action)
-      # print(f"State = {observation}")
+      saved_states.append(observation)
       total_reward += reward
       if done:
         return total_reward
-    return total_reward
+    return total_reward, saved_states
+
+  def close(self):
+    self.env.close()
 
 
 @ray.remote
 class ARSAgent():
 
-  def __init__(self, env_param, agent_param, seed=None):
+  def __init__(self, real_env_param, agent_param, trajectories=None,
+               seed=None):
     # Environment
-    self.env = SwimmerEnv(envName=env_param.name, n=env_param.n, l_i=env_param.l_i, m_i=env_param.m_i, h=env_param.h)
+    self.real_env_param = real_env_param
+    self.real_world = Environment(real_env_param)
+
+    # Estimator
+    self.estimator = None if trajectories == None else Estimator(trajectories)
 
     # Agent linear policy
-    self.policy = np.zeros((self.env.action_space.shape[0],
-                            self.env.observation_space.shape[0]))
+    self.policy = np.zeros((self.real_world.env.action_space.shape[0],
+                            self.real_world.env.observation_space.shape[0]))
     self.n_it = agent_param.n_iter
 
     # Agent parameters
@@ -96,49 +120,15 @@ class ARSAgent():
 
     # V2
     self.V1 = agent_param.select_V1
-    self.mean = np.zeros(self.env.observation_space.shape[0])
-    self.covariance = np.identity(self.env.observation_space.shape[0])
+    self.mean = None if self.V1 else np.zeros(
+      self.env.observation_space.shape[0])
+    self.covariance = None if self.V1 else np.identity(
+      self.env.observation_space.shape[0])
     self.saved_states = []
 
+    # Randomness
     self.n_seed = seed
     np.random.seed(self.n_seed)
-
-  def select_action(self, policy, observation):
-    """
-    Compute the action vector, using linear policy
-    :param policy: matrix
-    :param observation: vector
-    :return: vector
-    """
-    observation = np.array(observation)
-    if self.V1 is True:
-      return np.matmul(policy, observation)
-    # ARS V2
-    diag_covariance = np.diag(self.covariance) ** (-1 / 2)
-    policy = np.matmul(policy, np.diag(diag_covariance))
-    action = np.matmul(policy, observation - self.mean)
-    return action
-
-  def rollout(self, policy):
-    """
-    Doing self.H steps following the given policy,
-    and return the final total reward.
-
-    :param policy: matrix
-    :return: float
-    """
-    total_reward = 0
-    observation = self.env.reset()
-    for t in range(self.H):
-      # self.env.render()
-      action = self.select_action(policy, observation)
-      observation, reward, done, info = self.env.step(action)
-      if self.V1 is not True:
-        self.saved_states.append(observation)
-      total_reward += reward
-      if done:
-        return total_reward
-    return total_reward
 
   def sort_directions(self, deltas, rewards):
     """
@@ -178,9 +168,11 @@ class ARSAgent():
   def runOneIteration(self):
     """
     Performing one whole iteration of the ARS algorithm
-
     :return: void, self.policy is updated
     """
+    if self.estimator != None:  # Safe ARS - Estimation
+      x_tilde = self.estimator.estimate_env_param(self.real_env_param)
+
     deltas = [2 * np.random.rand(*self.policy.shape) -
               1 for i in range(self.N)]
     rewards = []
@@ -189,11 +181,26 @@ class ARSAgent():
         policy = self.policy + self.nu * deltas[i // 2]
       else:
         policy = self.policy - self.nu * deltas[i // 2]
-      rewards.append(self.rollout(policy))
-    # worker = Worker.remote(policy, self.n, self.H, self.l_i,
-    #                        self.m_i, self.h)
-    # rewards.append(worker.rollout.remote())
-    # rewards = ray.get(rewards)
+
+      # Safe ARS - Safe exploration
+      do_real_rollout = True
+      if self.estimator != None:
+        simulator = Environment(x_tilde)
+        reward = simulator.rollout(policy)
+        if reward <= self.threshold:
+          do_real_rollout = False
+
+      if do_real_rollout:
+        # TODO: MODIFY HERE FOR PARALLEL IMPLEMENTATION
+        reward, saved_states = self.real_world.rollout(policy,
+                                                       covariance=self.covariance,
+                                                       mean=self.mean)
+        rewards.append(reward)
+        if self.V1 == False:
+          self.saved_states += saved_states
+        if self.estimator != None:
+          self.estimator.add_trajectory(saved_states, policy)
+
     order = self.sort_directions(deltas, rewards)
     self.update_policy(deltas, rewards, order)
 
@@ -213,26 +220,29 @@ class ARSAgent():
     rewards = []
     for j in range(self.n_it):
       self.runOneIteration()
-      r = self.rollout(self.policy)
+      r, _ = self.real_world.rollout(self.policy)
       rewards.append(r)
       if j % 10 == 0:
-        print(f"Seed {self.n_seed} ------ V1 = {self.V1}; n={self.env.n}; " +
-              f"h={self.env.h}; alpha={self.alpha}; nu={self.nu}; N={self.N}" +
-              f"; b={self.b}; m_i={self.env.m_i}; l_i={self.env.l_i} " +
+        print(f"Seed {self.n_seed} ------ V1 = {self.V1}; "
+              f"n={self.real_env_param.n}; " +
+              f"h={self.real_env_param.h}; alpha={self.alpha}; nu={self.nu}; "
+              f"N={self.N}" +
+              f"; b={self.b}; m_i={self.real_env_param.m_i}; "
+              f"l_i={self.real_env_param.l_i} " +
               f"------ Iteration {j}/{self.n_it}: {r}")
-    self.env.close()
+    self.real_world.close()
     return np.array(rewards)
 
 
 class Experiment():
 
-  def __init__(self, env_param, results_path="results/gym/"):
+  def __init__(self, real_env_param, results_path="results/gym/"):
     """
     Constructor setting up parameters for the experience
     :param env_param: EnvParam
     """
     # Set up environment
-    self.env_param = env_param
+    self.real_env_param = real_env_param
     self.results_path = results_path
 
   # @ray.remote
@@ -243,27 +253,25 @@ class Experiment():
     :param agent_param: ARSParam
     :return: void
     """
-    ARS = f"ARS_{'V1' if agent_param.select_V1 else 'V2'}{'-t' if agent_param.b < agent_param.N else ''}, " \
+    ARS = f"ARS_{'V1' if agent_param.select_V1 else 'V2'}" \
+      f"{'-t' if agent_param.b < agent_param.N else ''}, " \
       f"n_directions={agent_param.N}, " \
       f"deltas_used={agent_param.b}, " \
       f"step_size={agent_param.alpha}, " \
       f"delta_std={agent_param.nu}"
-    environment = f"{self.env_param.name}, " \
-      f"n_segments={self.env_param.n}, " \
-      f"m_i={round(self.env_param.m_i, 2)}, " \
-      f"l_i={round(self.env_param.l_i,2)}, " \
-      f"deltaT={self.env_param.h}"
+    environment = f"{self.real_env_param.name}, " \
+      f"n_segments={self.real_env_param.n}, " \
+      f"m_i={round(self.real_env_param.m_i, 2)}, " \
+      f"l_i={round(self.real_env_param.l_i, 2)}, " \
+      f"deltaT={self.real_env_param.h}"
 
     print(f"\n------ {environment} ------")
     print(ARS + '\n')
 
-    print(ARS.replace(", ", "-"))
-    print(environment.replace(", ", "-"))
-
     # Seeds
     r_graphs = []
     for i in range(n_seed):
-      agent = ARSAgent.remote(self.env_param, agent_param, seed=i)
+      agent = ARSAgent.remote(self.real_env_param, agent_param, seed=i)
       r_graphs.append(agent.runTraining.remote())
     r_graphs = np.array(ray.get(r_graphs))
 
@@ -274,8 +282,12 @@ class Experiment():
     plt.title(f"------ {environment} ------\n{ARS}")
     plt.xlabel("Iteration")
     plt.ylabel("Reward")
-    np.save(f"{self.results_path}array/{environment.replace(', ', '-')}-{ARS.replace(', ', '-')}", r_graphs)
-    plt.savefig(f"{self.results_path}new/{environment.replace(', ', '-')}-{ARS.replace(', ', '-')}.png")
+    np.save(f"{self.results_path}array/"
+            f"{environment.replace(', ', '-')}-"
+            f"{ARS.replace(', ', '-')}", r_graphs)
+    plt.savefig(f"{self.results_path}new/"
+                f"{environment.replace(', ', '-')}-"
+                f"{ARS.replace(', ', '-')}.png")
     # plt.show()
     plt.close()
 
@@ -290,8 +302,9 @@ class Experiment():
     plt.title(f"------ {environment} ------\n{ARS}")
     plt.xlabel("Iteration")
     plt.ylabel("Reward")
-    plt.savefig(f"{self.results_path}new/{environment.replace(', ', '-')}-{ARS.replace(', ', '-')}-average.png")
-
+    plt.savefig(f"{self.results_path}new/"
+                f"{environment.replace(', ', '-')}-"
+                f"{ARS.replace(', ', '-')}-average.png")
     # plt.show()
     plt.close()
 
@@ -300,8 +313,9 @@ if __name__ == '__main__':
   ray.init(num_cpus=1)
 
   for n in range(3, 5):
-    env_param = EnvParam(f'LeonSwimmer', n=n, H=1000, l_i=1., m_i=1., h=1e-3)
+    real_env_param = EnvParam(f'LeonSwimmer', n=n, H=1000, l_i=1., m_i=1.,
+                              h=1e-3)
     agent_param = ARSParam(select_V1=True, n_iter=20,
                            H=1000, N=1, b=1, alpha=0.0075, nu=0.01)
-    exp = Experiment(env_param)
+    exp = Experiment(real_env_param)
     exp.plot(n_seed=1, agent_param=agent_param)
