@@ -30,8 +30,19 @@ class ARSParam:
 
 class Estimator:
 
-  def __init__(self, real_traj):
-    self.real_traj = real_traj
+  def __init__(self, trajectories_path):
+    # Load trajectories
+    npzfile = np.load(trajectories_path)
+    assert (
+          'policies' in npzfile.files and 'trajectories'), "The file loaded doesn't contain the array 'policies' and 'trajectories'"
+    policies = npzfile['policies']
+    trajectories = npzfile['trajectories']
+    assert (len(policies) == len(
+      trajectories)), "'policies' and 'trajectories' doesn't have the same length"
+
+    self.real_traj = []
+    for policy, trajectory in zip(policies, trajectories):
+      self.add_trajectory(trajectory, policy)
 
   def add_trajectory(self, trajectory, policy):
     self.real_traj.append((trajectory, policy))
@@ -59,7 +70,7 @@ class Environment():
     :return: vector
     """
     observation = np.array(observation)
-    if covariance == None or mean == None:  # ARS V1
+    if covariance is None or mean is None:  # ARS V1
       return np.matmul(policy, observation)
 
     # Else, ARS V2
@@ -104,7 +115,7 @@ class ARSAgent():
     self.real_world = Environment(real_env_param)
 
     # Estimator
-    self.estimator = None if trajectories == None else Estimator(trajectories)
+    self.estimator = None if trajectories is None else Estimator(trajectories)
 
     # Agent linear policy
     self.policy = np.zeros((self.real_world.env.action_space.shape[0],
@@ -184,7 +195,7 @@ class ARSAgent():
 
       # Safe ARS - Safe exploration
       do_real_rollout = True
-      if self.estimator != None:
+      if self.estimator is not None:
         simulator = Environment(x_tilde)
         reward = simulator.rollout(policy)
         if reward <= self.threshold:
@@ -192,13 +203,13 @@ class ARSAgent():
 
       if do_real_rollout:
         # TODO: MODIFY HERE FOR PARALLEL IMPLEMENTATION
-        reward, saved_states = self.real_world.rollout(policy,
-                                                       covariance=self.covariance,
-                                                       mean=self.mean)
+        reward, saved_states = \
+          self.real_world.rollout(policy, covariance=self.covariance,
+                                  mean=self.mean)
         rewards.append(reward)
-        if self.V1 == False:
+        if not self.V1:
           self.saved_states += saved_states
-        if self.estimator != None:
+        if self.estimator is not None:
           self.estimator.add_trajectory(saved_states, policy)
 
     order = self.sort_directions(deltas, rewards)
