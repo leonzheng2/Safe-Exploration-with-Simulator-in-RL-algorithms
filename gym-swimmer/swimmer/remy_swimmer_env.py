@@ -40,7 +40,8 @@ class SwimmerEnv(gym.Env):
 
   def step(self, action):
     """
-    Doing one step of RL environment. Returns next step given the given and previous state
+    Doing one step of RL environment.
+    Returns next step given the given and previous state
     :param action: array
     :return: array, float, boolean, dictionary
     """
@@ -56,7 +57,8 @@ class SwimmerEnv(gym.Env):
 
   def reset(self):
     """
-    Reset the environment to the initial state. Return the corresponding observation.
+    Reset the environment to the initial state.
+    Return the corresponding observation.
     :return: array
     """
     self.G_dot = np.full(2, 0.)
@@ -66,7 +68,8 @@ class SwimmerEnv(gym.Env):
 
   def next_observation(self, torque, G_dot, theta, theta_dot):
     """
-    Helper method for doing one step. Compute accelerations and do semi-implicit Euler intergration
+    Helper method for doing one step.
+    Compute accelerations and do semi-implicit Euler intergration
     :param torque: array
     :param G_dot: array
     :param theta: array
@@ -129,7 +132,8 @@ class SwimmerEnv(gym.Env):
       A_dot_Y[i] = A_dot_Y[i - 1] + self.l_i * theta_dot[i - 1] * np.cos(
         [theta[i - 1]])
 
-      # A_dot_i = A_dot_{i-1} + l * theta_dotdot_{i-1} * n_{i-1} - l * theta_dot_{i-1}^2 * p_{i-1}
+      # A_dot_i = A_dot_{i-1} + l * theta_dotdot_{i-1} * n_{i-1}
+      #                       - l * theta_dot_{i-1}^2 * p_{i-1}
       A_dotdot_X[i] = np.array(A_dotdot_X[i - 1], copy=True)
       A_dotdot_Y[i] = np.array(A_dotdot_Y[i - 1], copy=True)
       A_dotdot_X[i][2 + (i - 1)] -= self.l_i * np.sin(theta[i - 1])
@@ -168,9 +172,9 @@ class SwimmerEnv(gym.Env):
 
     for i in range(1, self.n + 1):
       force_X[i] = force_X[i - 1] + self.m_i * (
-            A_dotdot_X[i - 1] + A_dotdot_X[i]) / 2
+          A_dotdot_X[i - 1] + A_dotdot_X[i]) / 2
       force_Y[i] = force_Y[i - 1] + self.m_i * (
-            A_dotdot_Y[i - 1] + A_dotdot_Y[i]) / 2
+          A_dotdot_Y[i - 1] + A_dotdot_Y[i]) / 2
       # F is the friction force
       n_i = np.array([-np.sin(theta[i - 1]), np.cos(theta[i - 1])])
       G_dot_i = np.array([(A_dot_X[i - 1] + A_dot_X[i]) / 2,
@@ -190,8 +194,8 @@ class SwimmerEnv(gym.Env):
     system[1] = force_Y[self.n]
     for i in range(1, self.n + 1):
       system[2 + (i - 1)] += self.l_i / 2 * (
-            np.cos(theta[i - 1]) * (force_Y[i] + force_Y[i - 1])
-            - np.sin(theta[i - 1]) * (force_X[i] + force_X[i - 1]))
+          np.cos(theta[i - 1]) * (force_Y[i] + force_Y[i - 1])
+          - np.sin(theta[i - 1]) * (force_X[i] + force_X[i - 1]))
       system[2 + (i - 1)][2 + (i - 1)] -= self.m_i * self.l_i ** 2 / 12
       system[2 + (i - 1)][self.n + 2] += self.k * theta_dot[
         i - 1] * self.l_i ** 3 / 12
@@ -253,27 +257,30 @@ def matprint(name, mat, fmt="g"):
 if __name__ == '__main__':
   import math
 
-  # env = SwimmerEnv()
-  # # action = np.full(env.action_space.shape[0], env.max_u / 2.)
-  # # env.reset()
-  # # print(f"State: {env.get_state()}")
-  # # ob, reward, done, info = env.step(action)
-  # # print(f"State: {env.get_state()}")
-  # # print(f"Reward: {reward}")
+  env = SwimmerEnv()
+  # action = np.full(env.action_space.shape[0], env.max_u / 2.)
+  # env.reset()
+  # print(f"State: {env.get_state()}")
+  # ob, reward, done, info = env.step(action)
+  # print(f"State: {env.get_state()}")
+  # print(f"Reward: {reward}")
 
   # torque = np.full(env.action_space.shape[0], env.max_u / 2.)
   # G_dot = np.full(2, 0.)
-  # theta = np.full(env.n, math.pi/2)
+  # theta = np.full(env.n, math.pi / 2)
   # theta_dot = np.full(env.n, 0.)
   # print(G_dot, theta, theta_dot)
-  # A_dot_X, A_dot_Y, A_dotdot_X, A_dotdot_Y = env.compute_points_speed_acc(G_dot, theta, theta_dot)
+  # A_dot_X, A_dot_Y, A_dotdot_X, A_dotdot_Y = env.compute_points_speed_acc(
+  #   G_dot, theta, theta_dot)
   # print(f"A_dot_X = {A_dot_X}")
   # matprint("A_dotdot_X", A_dotdot_X)
   # print(f"A_dot_Y = {A_dot_Y}")
   # matprint("A_dotdot_Y", A_dotdot_Y)
-  # force_X, force_Y = env.compute_joint_force(theta, A_dot_X, A_dot_Y, A_dotdot_X, A_dotdot_Y)
+  # force_X, force_Y = env.compute_joint_force(theta, A_dot_X, A_dot_Y,
+  #                                            A_dotdot_X, A_dotdot_Y)
   # matprint("force_X", force_X)
-  # system = env.compute_dynamic_matrix(theta, theta_dot, torque, force_X, force_Y)
+  # system = env.compute_dynamic_matrix(theta, theta_dot, torque, force_X,
+  #                                     force_Y)
   # matprint("system", system)
   # G_dotdot, theta_dotdot = env.solve(system)
   # print(f"G_dotdot = {G_dotdot}")
@@ -302,7 +309,8 @@ if __name__ == '__main__':
   # env.G_dot = np.random.rand(2)
   # env.theta = np.random.rand(env.n)
   # env.theta_dot = np.random.rand(env.n)
-  # delta = np.random.rand(env.action_space.shape[0], env.observation_space.shape[0])
+  # delta = np.random.rand(env.action_space.shape[0],
+  #                        env.observation_space.shape[0])
   # nu = 3
   # policy += nu * delta
   # print(policy)
