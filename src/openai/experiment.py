@@ -19,36 +19,53 @@ class EnvParam:
 @dataclass
 class ARSParam:
   # Agent parameters
-  select_V1: bool
+  V1: bool
   n_iter: int
   H: int
   N: int
   b: int
   alpha: float
   nu: float
+  safe: bool
+  threshold: float
 
 
-class Estimator:
+class Database():
 
-  def __init__(self, trajectories_path):
+  def __init__(self):
+    self.policies = []
+    self.trajectories = []
+
+  def load(self, path):
     # Load trajectories
-    npzfile = np.load(trajectories_path)
-    assert (
-          'policies' in npzfile.files and 'trajectories'), "The file loaded doesn't contain the array 'policies' and 'trajectories'"
+    npzfile = np.load(path)
+    assert ('policies' in npzfile.files and 'trajectories'), \
+      "The file loaded doesn't contain " \
+      "the array 'policies' and 'trajectories'"
     policies = npzfile['policies']
     trajectories = npzfile['trajectories']
-    assert (len(policies) == len(
-      trajectories)), "'policies' and 'trajectories' doesn't have the same length"
+    assert (len(policies) == len(trajectories)), \
+      "'policies' and 'trajectories' doesn't have the same length"
 
     self.real_traj = []
     for policy, trajectory in zip(policies, trajectories):
       self.add_trajectory(trajectory, policy)
 
   def add_trajectory(self, trajectory, policy):
-    self.real_traj.append((trajectory, policy))
+    self.trajectories.append(trajectory)
+    self.policies.append(policy)
 
-  def estimate_real_env_param(self, real_env):
+  def save(self, path):
+    np.savez(path, policies=self.policies, trajectories=self.trajectories)
+
+
+class Estimator:
+
+  @staticmethod
+  def estimate_real_env_param(database, real_env):
     # TODO
+    # print(len(database.trajectories))
+    # print(len(database.policies))
     env_param = real_env
     return env_param
 
@@ -81,7 +98,7 @@ class Environment():
 
   def rollout(self, policy, covariance=None, mean=None):
     """
-    Doing self.H steps following the given policy,
+    Doing self.agent_param.H steps following the given policy,
     and return the final total reward.
 
     :param policy: matrix
@@ -108,33 +125,32 @@ class Environment():
 @ray.remote
 class ARSAgent():
 
-  def __init__(self, real_env_param, agent_param, trajectories=None,
+  def __init__(self, real_env_param, agent_param, data_path=None,
                seed=None):
     # Environment
     self.real_env_param = real_env_param
     self.real_world = Environment(real_env_param)
 
-    # Estimator
-    self.estimator = None if trajectories is None else Estimator(trajectories)
+    # Database
+    assert(((data_path is None) and (not agent_param.safe)) or
+           ((data_path is not None) and (agent_param.safe))), \
+      "Please provide a dataset if using safe ARS, and don't provide if not."
+    self.database = Database()
+    if data_path is not None:
+      self.database.load(data_path)
 
     # Agent linear policy
     self.policy = np.zeros((self.real_world.env.action_space.shape[0],
                             self.real_world.env.observation_space.shape[0]))
-    self.n_it = agent_param.n_iter
 
     # Agent parameters
-    self.N = agent_param.N
-    self.b = agent_param.b
-    self.alpha = agent_param.alpha
-    self.nu = agent_param.nu
-    self.H = agent_param.H
+    self.agent_param = agent_param
 
     # V2
-    self.V1 = agent_param.select_V1
-    self.mean = None if self.V1 else np.zeros(
-      self.env.observation_space.shape[0])
-    self.covariance = None if self.V1 else np.identity(
-      self.env.observation_space.shape[0])
+    self.mean = None if self.agent_param.V1 else \
+      np.zeros(self.real_world.env.observation_space.shape[0])
+    self.covariance = None if self.agent_param.V1 else \
+      np.identity(self.real_world.env.observation_space.shape[0])
     self.saved_states = []
 
     # Randomness
@@ -172,82 +188,99 @@ class ARSAgent():
     grad = np.zeros(self.policy.shape)
     for i in order:
       grad += (rewards[2 * i] - rewards[2 * i + 1]) * deltas[i]
-    grad /= (self.b * sigma_r)
+    grad /= (self.agent_param.b * sigma_r)
 
-    self.policy += self.alpha * grad
+    self.policy += self.agent_param.alpha * grad
 
   def runOneIteration(self):
     """
     Performing one whole iteration of the ARS algorithm
     :return: void, self.policy is updated
     """
-    if self.estimator != None:  # Safe ARS - Estimation
-      x_tilde = self.estimator.estimate_env_param(self.real_env_param)
+    if self.agent_param.safe:  # Safe ARS - Estimation
+      x_tilde = Estimator.estimate_real_env_param(self.database,
+                                                  self.real_env_param)
 
     deltas = [2 * np.random.rand(*self.policy.shape) -
-              1 for i in range(self.N)]
+              1 for i in range(self.agent_param.N)]
     rewards = []
-    for i in range(2 * self.N):
-      if i % 2 == 0:
-        policy = self.policy + self.nu * deltas[i // 2]
-      else:
-        policy = self.policy - self.nu * deltas[i // 2]
+    for i in range(self.agent_param.N):
+      policy_1 = self.policy + self.agent_param.nu * deltas[i]
+      policy_2 = self.policy - self.agent_param.nu * deltas[i]
 
       # Safe ARS - Safe exploration
       do_real_rollout = True
-      if self.estimator is not None:
+      if self.agent_param.safe:
         simulator = Environment(x_tilde)
-        reward = simulator.rollout(policy)
-        if reward <= self.threshold:
+        reward_1, _ = simulator.rollout(policy_1)
+        if reward_1 <= self.agent_param.threshold:
           do_real_rollout = False
+        else:
+          reward_2, _ = simulator.rollout(policy_2)
+          if reward_2 <= self.agent_param.threshold:
+            do_real_rollout = False
 
       if do_real_rollout:
         # TODO: MODIFY HERE FOR PARALLEL IMPLEMENTATION
-        reward, saved_states = \
-          self.real_world.rollout(policy, covariance=self.covariance,
-                                  mean=self.mean)
-        rewards.append(reward)
-        if not self.V1:
-          self.saved_states += saved_states
-        if self.estimator is not None:
-          self.estimator.add_trajectory(saved_states, policy)
+        for policy in [policy_1, policy_2]:
+          reward, saved_states = \
+            self.real_world.rollout(policy, covariance=self.covariance,
+                                    mean=self.mean)
+          assert((reward > self.agent_param.threshold and
+                  self.agent_param.safe) or
+                 (reward <= self.agent_param.threshold and
+                  not self.agent_param.safe))
+          rewards.append(reward), f"Obtained in real world rollout a " \
+            f"return of {reward}, below the " \
+            f"threshold {self.agent_param.threshold}"
+          if not self.agent_param.V1:
+            self.saved_states += saved_states
+          self.database.add_trajectory(saved_states, policy)
 
-    order = self.sort_directions(deltas, rewards)
-    self.update_policy(deltas, rewards, order)
+    if len(rewards) > 0:
+      # print(rewards)
+      order = self.sort_directions(deltas, rewards)
+      self.update_policy(deltas, rewards, order)
 
-    if self.V1 is not True:
-      states_array = np.array(self.saved_states)
-      self.mean = np.mean(states_array, axis=0)
-      self.covariance = np.cov(states_array.T)
-      # print(f"mean = {self.mean}")
-      # print(f"cov = {self.covariance}")
+      if self.agent_param.V1 is not True:
+        states_array = np.array(self.saved_states)
+        self.mean = np.mean(states_array, axis=0)
+        self.covariance = np.cov(states_array.T)
+        # print(f"mean = {self.mean}")
+        # print(f"cov = {self.covariance}")
 
-  def runTraining(self):
+  def runTraining(self, save_data_path=None):
     """
     Run the training. After each iteration, evaluate the current policy by
     doing one rollout. Save the obtained reward after each iteration.
     :return: array of float. Rewards obtained after each iteration.
     """
     rewards = []
-    for j in range(self.n_it):
+    for j in range(self.agent_param.n_iter):
       self.runOneIteration()
       r, _ = self.real_world.rollout(self.policy)
       rewards.append(r)
       if j % 10 == 0:
-        print(f"Seed {self.n_seed} ------ V1 = {self.V1}; "
-              f"n={self.real_env_param.n}; " +
-              f"h={self.real_env_param.h}; alpha={self.alpha}; nu={self.nu}; "
-              f"N={self.N}" +
-              f"; b={self.b}; m_i={self.real_env_param.m_i}; "
-              f"l_i={self.real_env_param.l_i} " +
-              f"------ Iteration {j}/{self.n_it}: {r}")
+        print(f"Seed {self.n_seed} ------ V1 = {self.agent_param.V1}; "
+              f"n={self.real_env_param.n}; "
+              f"h={self.real_env_param.h}; "
+              f"alpha={self.agent_param.alpha}; "
+              f"nu={self.agent_param.nu}; "
+              f"N={self.agent_param.N}; "
+              f"b={self.agent_param.b}; "
+              f"m_i={self.real_env_param.m_i}; "
+              f"l_i={self.real_env_param.l_i} "
+              f"------ Iteration {j}/{self.agent_param.n_iter}: {r}")
+        if save_data_path is not None:
+          self.database.save(save_data_path)
     self.real_world.close()
     return np.array(rewards)
 
 
 class Experiment():
 
-  def __init__(self, real_env_param, results_path="results/gym/"):
+  def __init__(self, real_env_param, results_path="results/gym/",
+               data_path=None, save_data_path=None):
     """
     Constructor setting up parameters for the experience
     :param env_param: EnvParam
@@ -255,6 +288,10 @@ class Experiment():
     # Set up environment
     self.real_env_param = real_env_param
     self.results_path = results_path
+
+    # Data
+    self.data_path = data_path
+    self.save_data_path = save_data_path
 
   # @ray.remote
   def plot(self, n_seed, agent_param):
@@ -264,7 +301,7 @@ class Experiment():
     :param agent_param: ARSParam
     :return: void
     """
-    ARS = f"ARS_{'V1' if agent_param.select_V1 else 'V2'}" \
+    ARS = f"ARS_{'V1' if agent_param.V1 else 'V2'}" \
       f"{'-t' if agent_param.b < agent_param.N else ''}, " \
       f"n_directions={agent_param.N}, " \
       f"deltas_used={agent_param.b}, " \
@@ -282,8 +319,10 @@ class Experiment():
     # Seeds
     r_graphs = []
     for i in range(n_seed):
-      agent = ARSAgent.remote(self.real_env_param, agent_param, seed=i)
-      r_graphs.append(agent.runTraining.remote())
+      agent = ARSAgent.remote(self.real_env_param, agent_param,
+                              seed=i, data_path=self.data_path)
+      r_graphs.append(agent.runTraining.remote(save_data_path=
+                                               self.save_data_path))
     r_graphs = np.array(ray.get(r_graphs))
 
     # Plot graphs
@@ -321,12 +360,13 @@ class Experiment():
 
 
 if __name__ == '__main__':
-  ray.init(num_cpus=1)
+  ray.init(num_cpus=4)
 
-  for n in range(3, 5):
-    real_env_param = EnvParam(f'LeonSwimmer', n=n, H=1000, l_i=1., m_i=1.,
-                              h=1e-3)
-    agent_param = ARSParam(select_V1=True, n_iter=20,
-                           H=1000, N=1, b=1, alpha=0.0075, nu=0.01)
-    exp = Experiment(real_env_param)
-    exp.plot(n_seed=1, agent_param=agent_param)
+  real_env_param = EnvParam(f'LeonSwimmer', n=3, H=1000, l_i=1., m_i=1.,
+                            h=1e-3)
+  agent_param = ARSParam(V1=False, n_iter=20, H=1000, N=1, b=1,
+                         alpha=0.0075, nu=0.01, safe=True, threshold=2)
+  exp = Experiment(real_env_param,
+                   data_path="src/openai/real_world.npz",
+                   save_data_path="src/openai/real_world")
+  exp.plot(n_seed=1, agent_param=agent_param)
