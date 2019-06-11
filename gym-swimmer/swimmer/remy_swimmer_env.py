@@ -13,7 +13,8 @@ from gym import spaces
 class SwimmerEnv(gym.Env):
   metadata = {'render.modes': ['human']}
 
-  def __init__(self, direction=[1., 0.], n=3, max_u=5., l_i=1., k=10., m_i=1., h=0.001):
+  def __init__(self, envName="LeonSwimmer-v0", direction=[1., 0.], n=3,
+               max_u=5., l_i=1., k=10., m_i=1., h=0.001):
     """
     Constructor.
     Need to call set_parameters() to set environment parameters.
@@ -26,13 +27,16 @@ class SwimmerEnv(gym.Env):
     self.k = k
     self.m_i = m_i
     self.h = h
+    self.envName = envName
 
     # Observation and action space
     n_obs = 2 * self.n + 2
     n_action = self.n - 1
     inf = 1000
-    self.observation_space = spaces.Box(-inf, inf, shape=(n_obs,), dtype=np.float32)
-    self.action_space = spaces.Box(-self.max_u, self.max_u, shape=(n_action,), dtype=np.float32)
+    self.observation_space = spaces.Box(-inf, inf, shape=(n_obs,),
+                                        dtype=np.float32)
+    self.action_space = spaces.Box(-self.max_u, self.max_u, shape=(n_action,),
+                                   dtype=np.float32)
 
   def step(self, action):
     """
@@ -40,7 +44,9 @@ class SwimmerEnv(gym.Env):
     :param action: array
     :return: array, float, boolean, dictionary
     """
-    self.G_dot, self.theta, self.theta_dot = self.next_observation(action, self.G_dot, self.theta,
+    self.G_dot, self.theta, self.theta_dot = self.next_observation(action,
+                                                                   self.G_dot,
+                                                                   self.theta,
                                                                    self.theta_dot)
     ob = self.get_state()
     reward = self.get_reward()
@@ -67,7 +73,8 @@ class SwimmerEnv(gym.Env):
     :param theta_dot: array
     :return: array, array, array
     """
-    G_dotdot, theta_dotdot = self.compute_accelerations(torque, G_dot, theta, theta_dot)
+    G_dotdot, theta_dotdot = self.compute_accelerations(torque, G_dot, theta,
+                                                        theta_dot)
 
     # # Semi-implicit Euler integration
     # G_dot = G_dot + self.h * G_dotdot
@@ -92,9 +99,12 @@ class SwimmerEnv(gym.Env):
     :return: array, array
     """
 
-    A_dot_X, A_dot_Y, A_dotdot_X, A_dotdot_Y = self.compute_points_speed_acc(G_dot, theta, theta_dot)
-    force_X, force_Y = self.compute_joint_force(theta, A_dot_X, A_dot_Y, A_dotdot_X, A_dotdot_Y)
-    system = self.compute_dynamic_matrix(theta, theta_dot, torque, force_X, force_Y)
+    A_dot_X, A_dot_Y, A_dotdot_X, A_dotdot_Y = self.compute_points_speed_acc(
+      G_dot, theta, theta_dot)
+    force_X, force_Y = self.compute_joint_force(theta, A_dot_X, A_dot_Y,
+                                                A_dotdot_X, A_dotdot_Y)
+    system = self.compute_dynamic_matrix(theta, theta_dot, torque, force_X,
+                                         force_Y)
 
     G_dotdot, theta_dotdot = self.solve(system)
 
@@ -114,16 +124,20 @@ class SwimmerEnv(gym.Env):
     # Frame of swimmer's head
     for i in range(1, self.n + 1):
       # A_dot_i = A_dot_{i-1} + l * theta_dot_{i-1} * n_{i-1}
-      A_dot_X[i] = A_dot_X[i - 1] - self.l_i * theta_dot[i - 1] * np.sin([theta[i - 1]])
-      A_dot_Y[i] = A_dot_Y[i - 1] + self.l_i * theta_dot[i - 1] * np.cos([theta[i - 1]])
+      A_dot_X[i] = A_dot_X[i - 1] - self.l_i * theta_dot[i - 1] * np.sin(
+        [theta[i - 1]])
+      A_dot_Y[i] = A_dot_Y[i - 1] + self.l_i * theta_dot[i - 1] * np.cos(
+        [theta[i - 1]])
 
       # A_dot_i = A_dot_{i-1} + l * theta_dotdot_{i-1} * n_{i-1} - l * theta_dot_{i-1}^2 * p_{i-1}
       A_dotdot_X[i] = np.array(A_dotdot_X[i - 1], copy=True)
       A_dotdot_Y[i] = np.array(A_dotdot_Y[i - 1], copy=True)
       A_dotdot_X[i][2 + (i - 1)] -= self.l_i * np.sin(theta[i - 1])
       A_dotdot_Y[i][2 + (i - 1)] += self.l_i * np.cos(theta[i - 1])
-      A_dotdot_X[i][self.n + 2] -= self.l_i * theta_dot[i - 1] ** 2 * np.cos(theta[i - 1])
-      A_dotdot_Y[i][self.n + 2] -= self.l_i * theta_dot[i - 1] ** 2 * np.sin(theta[i - 1])
+      A_dotdot_X[i][self.n + 2] -= self.l_i * theta_dot[i - 1] ** 2 * np.cos(
+        theta[i - 1])
+      A_dotdot_Y[i][self.n + 2] -= self.l_i * theta_dot[i - 1] ** 2 * np.sin(
+        theta[i - 1])
 
       # G_dot
       G_dot_X += 1 / self.n * (A_dot_X[i - 1] + A_dot_X[i]) / 2
@@ -147,16 +161,20 @@ class SwimmerEnv(gym.Env):
 
     return A_dot_X, A_dot_Y, A_dotdot_X, A_dotdot_Y
 
-  def compute_joint_force(self, theta, A_dot_X, A_dot_Y, A_dotdot_X, A_dotdot_Y):
+  def compute_joint_force(self, theta, A_dot_X, A_dot_Y, A_dotdot_X,
+                          A_dotdot_Y):
     force_X = np.zeros((self.n + 1, self.n + 3))
     force_Y = np.zeros((self.n + 1, self.n + 3))
 
     for i in range(1, self.n + 1):
-      force_X[i] = force_X[i - 1] + self.m_i * (A_dotdot_X[i - 1] + A_dotdot_X[i]) / 2
-      force_Y[i] = force_Y[i - 1] + self.m_i * (A_dotdot_Y[i - 1] + A_dotdot_Y[i]) / 2
+      force_X[i] = force_X[i - 1] + self.m_i * (
+            A_dotdot_X[i - 1] + A_dotdot_X[i]) / 2
+      force_Y[i] = force_Y[i - 1] + self.m_i * (
+            A_dotdot_Y[i - 1] + A_dotdot_Y[i]) / 2
       # F is the friction force
       n_i = np.array([-np.sin(theta[i - 1]), np.cos(theta[i - 1])])
-      G_dot_i = np.array([(A_dot_X[i - 1] + A_dot_X[i]) / 2, (A_dot_Y[i - 1] + A_dot_Y[i]) / 2])
+      G_dot_i = np.array([(A_dot_X[i - 1] + A_dot_X[i]) / 2,
+                          (A_dot_Y[i - 1] + A_dot_Y[i]) / 2])
       F = -self.k * self.l_i * np.dot(G_dot_i, n_i)
       force_X[i][self.n + 2] -= F * n_i[0]
       force_Y[i][self.n + 2] -= F * n_i[1]
@@ -164,16 +182,19 @@ class SwimmerEnv(gym.Env):
 
     return force_X, force_Y
 
-  def compute_dynamic_matrix(self, theta, theta_dot, torque, force_X, force_Y):
+  def compute_dynamic_matrix(self, theta, theta_dot, torque, force_X,
+                             force_Y):
     system = np.zeros((self.n + 2, self.n + 3))
 
     system[0] = force_X[self.n]
     system[1] = force_Y[self.n]
     for i in range(1, self.n + 1):
-      system[2 + (i - 1)] += self.l_i / 2 * (np.cos(theta[i - 1]) * (force_Y[i] + force_Y[i - 1])
-                                             - np.sin(theta[i - 1]) * (force_X[i] + force_X[i - 1]))
+      system[2 + (i - 1)] += self.l_i / 2 * (
+            np.cos(theta[i - 1]) * (force_Y[i] + force_Y[i - 1])
+            - np.sin(theta[i - 1]) * (force_X[i] + force_X[i - 1]))
       system[2 + (i - 1)][2 + (i - 1)] -= self.m_i * self.l_i ** 2 / 12
-      system[2 + (i - 1)][self.n + 2] += self.k * theta_dot[i - 1] * self.l_i ** 3 / 12
+      system[2 + (i - 1)][self.n + 2] += self.k * theta_dot[
+        i - 1] * self.l_i ** 3 / 12
       if i - 2 >= 0:
         system[2 + (i - 1)][self.n + 2] += torque[i - 2]
       if i - 1 < self.n - 1:
@@ -219,7 +240,8 @@ class SwimmerEnv(gym.Env):
 
 def matprint(name, mat, fmt="g"):
   print(f"------------ {name} ------------")
-  col_maxes = [max([len(("{:" + fmt + "}").format(x)) for x in col]) for col in mat.T]
+  col_maxes = [max([len(("{:" + fmt + "}").format(x)) for x in col]) for col
+               in mat.T]
   for x in mat:
     for i, y in enumerate(x):
       print(("{:" + str(col_maxes[i]) + fmt + "}").format(y), end="  ")
@@ -229,6 +251,8 @@ def matprint(name, mat, fmt="g"):
 
 
 if __name__ == '__main__':
+  import math
+
   # env = SwimmerEnv()
   # # action = np.full(env.action_space.shape[0], env.max_u / 2.)
   # # env.reset()
@@ -261,7 +285,8 @@ if __name__ == '__main__':
   env.G_dot = np.random.rand(2)
   env.theta = np.random.rand(env.n)
   env.theta_dot = np.random.rand(env.n)
-  policy = np.zeros((env.action_space.shape[0], env.observation_space.shape[0]))
+  policy = np.zeros(
+    (env.action_space.shape[0], env.observation_space.shape[0]))
   total_reward = 0
   for i in range(1000):
     state = np.array(env.get_state())
