@@ -45,10 +45,8 @@ class SwimmerEnv(gym.Env):
     :param action: array
     :return: array, float, boolean, dictionary
     """
-    self.G_dot, self.theta, self.theta_dot = self.next_observation(action,
-                                                                   self.G_dot,
-                                                                   self.theta,
-                                                                   self.theta_dot)
+    self.G_dot, self.theta, self.theta_dot = \
+      self.next_observation(action, self.G_dot, self.theta, self.theta_dot)
     ob = self.get_state()
     reward = self.get_reward()
     done = self.check_terminal()
@@ -189,7 +187,6 @@ class SwimmerEnv(gym.Env):
   def compute_dynamic_matrix(self, theta, theta_dot, torque, force_X,
                              force_Y):
     system = np.zeros((self.n + 2, self.n + 3))
-
     system[0] = force_X[self.n]
     system[1] = force_Y[self.n]
     for i in range(1, self.n + 1):
@@ -197,13 +194,12 @@ class SwimmerEnv(gym.Env):
           np.cos(theta[i - 1]) * (force_Y[i] + force_Y[i - 1])
           - np.sin(theta[i - 1]) * (force_X[i] + force_X[i - 1]))
       system[2 + (i - 1)][2 + (i - 1)] -= self.m_i * self.l_i ** 2 / 12
-      system[2 + (i - 1)][self.n + 2] += self.k * theta_dot[
-        i - 1] * self.l_i ** 3 / 12
+      system[2 + (i - 1)][self.n + 2] += self.k * theta_dot[i - 1] *\
+                                         self.l_i ** 3 / 12
       if i - 2 >= 0:
         system[2 + (i - 1)][self.n + 2] += torque[i - 2]
       if i - 1 < self.n - 1:
         system[2 + (i - 1)][self.n + 2] -= torque[i - 1]
-
     return system
 
   def solve(self, system):
@@ -255,8 +251,6 @@ def matprint(name, mat, fmt="g"):
 
 
 if __name__ == '__main__':
-  import math
-
   env = SwimmerEnv()
   # action = np.full(env.action_space.shape[0], env.max_u / 2.)
   # env.reset()
