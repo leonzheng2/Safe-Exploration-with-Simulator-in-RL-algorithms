@@ -132,8 +132,8 @@ class ARSAgent():
     self.real_world = Environment(real_env_param)
 
     # Database
-    assert(((data_path is None) and (not agent_param.safe)) or
-           ((data_path is not None) and (agent_param.safe))), \
+    assert (((data_path is None) and (not agent_param.safe)) or
+            ((data_path is not None) and (agent_param.safe))), \
       "Please provide a dataset if using safe ARS, and don't provide if not."
     self.database = Database()
     if data_path is not None:
@@ -212,27 +212,34 @@ class ARSAgent():
       do_real_rollout = True
       if self.agent_param.safe:
         simulator = Environment(x_tilde)
-        reward_1, _ = simulator.rollout(policy_1)
+        reward_1, _ = simulator.rollout(policy_1, covariance=self.covariance,
+                                        mean=self.mean)
         if reward_1 <= self.agent_param.threshold:
           do_real_rollout = False
         else:
-          reward_2, _ = simulator.rollout(policy_2)
+          reward_2, _ = simulator.rollout(policy_2,
+                                          covariance=self.covariance,
+                                          mean=self.mean)
           if reward_2 <= self.agent_param.threshold:
             do_real_rollout = False
 
       if do_real_rollout:
+        print(f"Reward 1: {reward_1}")
+        print(f"Reward 2: {reward_2}")
+
         # TODO: MODIFY HERE FOR PARALLEL IMPLEMENTATION
         for policy in [policy_1, policy_2]:
           reward, saved_states = \
             self.real_world.rollout(policy, covariance=self.covariance,
                                     mean=self.mean)
-          assert((reward > self.agent_param.threshold and
-                  self.agent_param.safe) or
-                 (reward <= self.agent_param.threshold and
-                  not self.agent_param.safe))
-          rewards.append(reward), f"Obtained in real world rollout a " \
-            f"return of {reward}, below the " \
-            f"threshold {self.agent_param.threshold}"
+          assert ((reward > self.agent_param.threshold and
+                   self.agent_param.safe) or
+                  (reward <= self.agent_param.threshold and
+                   not self.agent_param.safe)), \
+            f"Obtained in real world rollout a " \
+              f"return of {reward}, below the " \
+              f"threshold {self.agent_param.threshold}"
+          rewards.append(reward)
           if not self.agent_param.V1:
             self.saved_states += saved_states
           self.database.add_trajectory(saved_states, policy)
@@ -242,12 +249,13 @@ class ARSAgent():
       order = self.sort_directions(deltas, rewards)
       self.update_policy(deltas, rewards, order)
 
-      if self.agent_param.V1 is not True:
+      if self.agent_param.V1 is False:
         states_array = np.array(self.saved_states)
         self.mean = np.mean(states_array, axis=0)
         self.covariance = np.cov(states_array.T)
         # print(f"mean = {self.mean}")
         # print(f"cov = {self.covariance}")
+    return rewards
 
   def runTraining(self, save_data_path=None):
     """
@@ -255,10 +263,10 @@ class ARSAgent():
     doing one rollout. Save the obtained reward after each iteration.
     :return: array of float. Rewards obtained after each iteration.
     """
-    rewards = []
-    for j in range(self.agent_param.n_iter):
-      self.runOneIteration()
-      r, _ = self.real_world.rollout(self.policy)
+    rewards = [0]
+    for j in range(1, self.agent_param.n_iter+1):
+      all_rewards = self.runOneIteration()
+      r = np.mean(all_rewards) if len(all_rewards) > 0 else rewards[-1]
       rewards.append(r)
       if j % 10 == 0:
         print(f"Seed {self.n_seed} ------ V1 = {self.agent_param.V1}; "
@@ -326,11 +334,14 @@ class Experiment():
     r_graphs = np.array(ray.get(r_graphs))
 
     # Plot graphs
+    t = np.linspace(0,
+                    agent_param.n_iter * 2 * agent_param.N * agent_param.H,
+                    agent_param.n_iter + 1)
     plt.figure(figsize=(10, 8))
     for rewards in r_graphs:
-      plt.plot(rewards)
+      plt.plot(t, rewards)
     plt.title(f"------ {environment} ------\n{ARS}")
-    plt.xlabel("Iteration")
+    plt.xlabel("Timesteps")
     plt.ylabel("Reward")
     np.save(f"{self.results_path}array/"
             f"{environment.replace(', ', '-')}-"
@@ -343,14 +354,13 @@ class Experiment():
 
     # Plot mean and std
     plt.figure(figsize=(10, 8))
-    x = np.linspace(0, agent_param.n_iter - 1, agent_param.n_iter)
     mean = np.mean(r_graphs, axis=0)
     std = np.std(r_graphs, axis=0)
-    plt.plot(x, mean, 'k', color='#CC4F1B')
-    plt.fill_between(x, mean - std, mean + std, alpha=0.5,
+    plt.plot(t, mean, 'k', color='#CC4F1B')
+    plt.fill_between(t, mean - std, mean + std, alpha=0.5,
                      edgecolor='#CC4F1B', facecolor='#FF9848')
     plt.title(f"------ {environment} ------\n{ARS}")
-    plt.xlabel("Iteration")
+    plt.xlabel("Timesteps")
     plt.ylabel("Reward")
     plt.savefig(f"{self.results_path}new/"
                 f"{environment.replace(', ', '-')}-"
@@ -360,13 +370,13 @@ class Experiment():
 
 
 if __name__ == '__main__':
-  ray.init(num_cpus=4)
+  ray.init(num_cpus=8)
 
   real_env_param = EnvParam(f'LeonSwimmer', n=3, H=1000, l_i=1., m_i=1.,
                             h=1e-3)
   agent_param = ARSParam(V1=False, n_iter=20, H=1000, N=1, b=1,
-                         alpha=0.0075, nu=0.01, safe=True, threshold=2)
+                         alpha=0.0075, nu=0.01, safe=True, threshold=0)
   exp = Experiment(real_env_param,
                    data_path="src/openai/real_world.npz",
-                   save_data_path="src/openai/real_world")
+                   save_data_path=None)
   exp.plot(n_seed=1, agent_param=agent_param)
