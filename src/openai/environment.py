@@ -8,7 +8,8 @@ class Environment():
   def __init__(self, env_param):
     self.env_param = env_param
     self.env = SwimmerEnv(envName=env_param.name, n=env_param.n,
-                          l_i=env_param.l_i, m_i=env_param.m_i, h=env_param.h)
+                          l_i=env_param.l_i, m_i=env_param.m_i, h=env_param.h,
+                          k=env_param.k)
 
   def select_action(self, policy, observation, covariance=None, mean=None):
     """

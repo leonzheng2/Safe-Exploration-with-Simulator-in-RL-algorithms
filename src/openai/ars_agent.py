@@ -81,8 +81,8 @@ class ARSAgent():
     :return: void, self.policy is updated
     """
     if self.agent_param.safe:  # Safe ARS - Estimation
-      x_tilde = Estimator.estimate_real_env_param(self.database,
-                                                  self.real_env_param)
+      estimator = Estimator(self.real_world.env_param, self.database)
+      x_tilde = estimator.estimate_real_env_param()
 
     deltas = [2 * np.random.rand(*self.policy.shape) -
               1 for i in range(self.agent_param.N)]
@@ -143,7 +143,11 @@ class ARSAgent():
     doing one rollout. Save the obtained reward after each iteration.
     :return: array of float. Rewards obtained after each iteration.
     """
+    # Initialization
+    # TODO Weights initialization
     rewards = [0]
+
+    # Training
     for j in range(1, self.agent_param.n_iter + 1):
       all_rewards = self.runOneIteration()
       r = np.mean(all_rewards) if len(all_rewards) > 0 else rewards[-1]
@@ -161,5 +165,7 @@ class ARSAgent():
               f"------ Iteration {j}/{self.agent_param.n_iter}: {r}")
         if save_data_path is not None:
           self.database.save(save_data_path)
+
+    # End of the training
     self.real_world.close()
     return np.array(rewards)

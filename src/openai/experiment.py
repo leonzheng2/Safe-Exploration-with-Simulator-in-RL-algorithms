@@ -92,9 +92,9 @@ class Experiment():
 if __name__ == '__main__':
   ray.init(num_cpus=8)
 
-  real_env_param = EnvParam(f'LeonSwimmer', n=3, H=1000, l_i=1., m_i=1.,
-                            h=1e-3)
-  agent_param = ARSParam(V1=False, n_iter=20, H=1000, N=1, b=1,
+  real_env_param = EnvParam(f'LeonSwimmer-RealWorld', n=3, H=1000, l_i=1., m_i=1.,
+                            h=1e-3, k=10.)
+  agent_param = ARSParam(V1=True, n_iter=20, H=1000, N=1, b=1,
                          alpha=0.0075, nu=0.01, safe=True, threshold=0)
   exp = Experiment(real_env_param,
                    data_path="src/openai/real_world.npz",

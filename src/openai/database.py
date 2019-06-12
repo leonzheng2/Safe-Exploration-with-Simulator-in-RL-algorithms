@@ -6,6 +6,7 @@ class Database():
   def __init__(self):
     self.policies = []
     self.trajectories = []
+    self.size = 0
 
   def load(self, path):
     # Load trajectories
@@ -25,6 +26,22 @@ class Database():
   def add_trajectory(self, trajectory, policy):
     self.trajectories.append(trajectory)
     self.policies.append(policy)
+    self.size += 1
 
   def save(self, path):
     np.savez(path, policies=self.policies, trajectories=self.trajectories)
+
+
+def pick_sub_database(data_path, size, sub_data_path):
+  data = Database()
+  data.load(data_path)
+
+  sub_data = Database()
+  selected = np.random.randint(0, data.size, size)
+  for i in selected:
+    sub_data.add_trajectory(data.trajectories[i], data.policies[i])
+  sub_data.save(sub_data_path)
+
+if __name__ == '__main__':
+  size = 10
+  pick_sub_database("src/openai/real_world.npz", size, f"src/openai/real_world_sub_{size}")

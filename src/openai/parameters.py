@@ -10,6 +10,7 @@ class EnvParam:
   l_i: float
   m_i: float
   h: float
+  k: float
 
 
 @dataclass
