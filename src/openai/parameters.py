@@ -25,3 +25,4 @@ class ARSParam:
   nu: float
   safe: bool
   threshold: float
+  initial_w: str

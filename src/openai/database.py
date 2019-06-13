@@ -2,6 +2,7 @@ import numpy as np
 
 
 class Database():
+  # TODO add a limit capacity if it is too much
 
   def __init__(self):
     self.policies = []

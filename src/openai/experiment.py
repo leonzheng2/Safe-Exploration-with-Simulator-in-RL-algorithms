@@ -8,7 +8,8 @@ from src.openai.ars_agent import ARSAgent
 class Experiment():
 
   def __init__(self, real_env_param, results_path="results/gym/",
-               data_path=None, save_data_path=None):
+               data_path=None, save_data_path=None, save_policy_path=None,
+               guess_param=None):
     """
     Constructor setting up parameters for the experience
     :param env_param: EnvParam
@@ -16,6 +17,12 @@ class Experiment():
     # Set up environment
     self.real_env_param = real_env_param
     self.results_path = results_path
+
+    # Guess parameters
+    self.guess_param = guess_param
+
+    # Policy
+    self.save_policy_path = save_policy_path
 
     # Data
     self.data_path = data_path
@@ -48,9 +55,11 @@ class Experiment():
     r_graphs = []
     for i in range(n_seed):
       agent = ARSAgent.remote(self.real_env_param, agent_param,
-                              seed=i, data_path=self.data_path)
+                              seed=i, data_path=self.data_path,
+                              guess_param=self.guess_param)
       r_graphs.append(agent.runTraining.remote(save_data_path=
-                                               self.save_data_path))
+                                               self.save_data_path,
+                                               save_policy_path=self.save_policy_path))
     r_graphs = np.array(ray.get(r_graphs))
 
     # Plot graphs
@@ -88,15 +97,40 @@ class Experiment():
     # plt.show()
     plt.close()
 
+    return mean
 
 if __name__ == '__main__':
   ray.init(num_cpus=8)
-
-  real_env_param = EnvParam(f'LeonSwimmer-RealWorld', n=3, H=1000, l_i=1., m_i=1.,
+  real_env_param = EnvParam(f'LeonSwimmer-Simulator', n=3, H=1000, l_i=.8,
+                         m_i=1.2,
+                         h=1e-3, k=10.2)
+  guess_param = EnvParam(f'LeonSwimmer-RealWorld', n=3, H=1000, l_i=1.,
+                            m_i=1.,
                             h=1e-3, k=10.)
-  agent_param = ARSParam(V1=True, n_iter=20, H=1000, N=1, b=1,
-                         alpha=0.0075, nu=0.01, safe=True, threshold=0)
-  exp = Experiment(real_env_param,
-                   data_path="src/openai/real_world.npz",
-                   save_data_path=None)
-  exp.plot(n_seed=1, agent_param=agent_param)
+
+  # Get the initial weight - As if it is the hand controller
+
+  hand_agent = ARSParam(V1=True, n_iter=1000, H=1000, N=1, b=1,
+                       alpha=0.0075, nu=0.01, safe=False, threshold=0,
+                       initial_w='Zero')
+  hand_exp = Experiment(real_env_param,
+                       data_path=None,
+                       save_data_path=None,
+                       save_policy_path='src/openai/saved_hand_policy',
+                       guess_param=None)
+  mean_returns = hand_exp.plot(n_seed=1, agent_param=hand_agent)
+
+  # Get safety threshold based on known controller/experience
+  l = mean_returns[-1] * 0.9
+  np.savetxt("src/openai/threshold.txt", l)
+  # l = 250
+
+  # Train the real agent in real world. Unknown real world parameters.
+  real_agent = ARSParam(V1=True, n_iter=100, H=1000, N=1, b=1,
+                        alpha=0.0075, nu=0.01, safe=False, threshold=l,
+                        initial_w='src/openai/saved_hand_policy.npy')
+  real_exp = Experiment(real_env_param,
+                        data_path="src/openai/real_world.npz",
+                        save_data_path=None,
+                        guess_param=guess_param)  # For cheating, use real_env_param
+  real_exp.plot(n_seed=1, agent_param=real_agent)

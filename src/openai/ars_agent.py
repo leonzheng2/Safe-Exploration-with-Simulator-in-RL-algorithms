@@ -9,22 +9,30 @@ from src.openai.estimator import Estimator
 class ARSAgent():
 
   def __init__(self, real_env_param, agent_param, data_path=None,
-               seed=None):
+               seed=None, guess_param=None):
     # Environment
     self.real_env_param = real_env_param
     self.real_world = Environment(real_env_param)
 
     # Database
-    assert (((data_path is None) and (not agent_param.safe)) or
-            ((data_path is not None) and (agent_param.safe))), \
-      "Please provide a dataset if using safe ARS, and don't provide if not."
+    agent_param.safe = (data_path is not None)
     self.database = Database()
-    if data_path is not None:
+    if agent_param.safe:
       self.database.load(data_path)
+      # Estimator
+      self.estimator = Estimator(self.database, guess_param)
+      self.estimated_param = self.estimator.estimate_real_env_param()
+      # CHEATING
+      # self.estimated_param = self.real_env_param
 
     # Agent linear policy
-    self.policy = np.zeros((self.real_world.env.action_space.shape[0],
-                            self.real_world.env.observation_space.shape[0]))
+    if agent_param.initial_w == 'Zero':
+      self.policy = np.zeros((self.real_world.env.action_space.shape[0],
+                              self.real_world.env.observation_space.shape[0]))
+    else:
+      self.policy = np.load(agent_param.initial_w)
+      assert self.policy.shape == (self.real_world.env.action_space.shape[0],
+                              self.real_world.env.observation_space.shape[0])
 
     # Agent parameters
     self.agent_param = agent_param
@@ -80,10 +88,6 @@ class ARSAgent():
     Performing one whole iteration of the ARS algorithm
     :return: void, self.policy is updated
     """
-    if self.agent_param.safe:  # Safe ARS - Estimation
-      estimator = Estimator(self.real_world.env_param, self.database)
-      x_tilde = estimator.estimate_real_env_param()
-
     deltas = [2 * np.random.rand(*self.policy.shape) -
               1 for i in range(self.agent_param.N)]
     rewards = []
@@ -94,7 +98,7 @@ class ARSAgent():
       # Safe ARS - Safe exploration
       do_real_rollout = True
       if self.agent_param.safe:
-        simulator = Environment(x_tilde)
+        simulator = Environment(self.estimated_param)
         reward_1, _ = simulator.rollout(policy_1, covariance=self.covariance,
                                         mean=self.mean)
         if reward_1 <= self.agent_param.threshold:
@@ -112,10 +116,8 @@ class ARSAgent():
           reward, saved_states = \
             self.real_world.rollout(policy, covariance=self.covariance,
                                     mean=self.mean)
-          assert ((reward > self.agent_param.threshold and
-                   self.agent_param.safe) or
-                  (reward <= self.agent_param.threshold and
-                   not self.agent_param.safe)), \
+          if self.agent_param.safe:
+            assert (reward > self.agent_param.threshold), \
             f"Obtained in real world rollout a " \
               f"return of {reward}, below the " \
               f"threshold {self.agent_param.threshold}"
@@ -137,15 +139,18 @@ class ARSAgent():
         # print(f"cov = {self.covariance}")
     return rewards
 
-  def runTraining(self, save_data_path=None):
+  def runTraining(self, save_data_path=None, save_policy_path=None):
     """
     Run the training. After each iteration, evaluate the current policy by
     doing one rollout. Save the obtained reward after each iteration.
+
     :return: array of float. Rewards obtained after each iteration.
     """
+    # Estimation
+
+
     # Initialization
-    # TODO Weights initialization
-    rewards = [0]
+    rewards = [np.mean(self.runOneIteration())]
 
     # Training
     for j in range(1, self.agent_param.n_iter + 1):
@@ -168,4 +173,6 @@ class ARSAgent():
 
     # End of the training
     self.real_world.close()
+    if save_policy_path is not None:
+      np.save(save_policy_path, self.policy)
     return np.array(rewards)
