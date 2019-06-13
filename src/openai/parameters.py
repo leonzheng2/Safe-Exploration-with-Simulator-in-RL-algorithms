@@ -16,6 +16,7 @@ class EnvParam:
 @dataclass
 class ARSParam:
   # Agent parameters
+  name: str
   V1: bool
   n_iter: int
   H: int

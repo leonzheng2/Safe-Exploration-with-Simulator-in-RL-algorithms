@@ -4,12 +4,12 @@ from src.openai.database import Database
 from src.openai.environment import Environment
 from src.openai.parameters import EnvParam
 import cma
-
+import time
 
 class Estimator:
 
   def __init__(self, database, guess_param, unknowns=('m_i', 'l_i', 'k'),
-               capacity=2):
+               capacity=1):
     assert database.size > 0, "Database is empty"
     assert len(
       database.trajectories[0]) == guess_param.H, "Rollouts are not the same"
@@ -18,6 +18,29 @@ class Estimator:
     self.database = database
     self.subset = np.random.randint(0, self.database.size, capacity)
     self.iter = 0
+
+  def I(self, x):
+    distances = []
+    for k in self.subset:
+      policy = self.database.policies[k]
+      trajectory = np.array(self.database.trajectories[k])
+
+      sim_param = self.convert_to_env_param(x)
+      sim_env = Environment(sim_param)
+
+      sim_states = []
+      for s in trajectory[:-1]:
+        ac = sim_env.select_action(policy, s)
+        sim_env.env.set_state(s)
+        next_s, _, _, _ = sim_env.env.step(ac)
+        sim_states.append(next_s)
+      sim_states = np.array(sim_states)
+
+      real_states = trajectory[1:]
+
+      dist = 1/len(real_states) * np.sum(np.linalg.norm(sim_states - real_states, ord=2, axis=1))
+      distances.append(dist)
+    return np.mean(distances)
 
   def J(self, x):
     distances = []
@@ -49,7 +72,7 @@ class Estimator:
       x0[i] = d[self.unknowns[i]]
     print(f"Initial estimation extracted: {x0}")
     print("Starting estimation...")
-    es = cma.CMAEvolutionStrategy(x0, 1).optimize(self.J)
+    es = cma.CMAEvolutionStrategy(x0, 1).optimize(self.I)
     res = es.result
     print(res)
     est_x, _, _ = es.best.get()
@@ -67,10 +90,17 @@ class Estimator:
 
 if __name__ == '__main__':
   guess_param = EnvParam(name="Simulator with estimation", n=3, H=1000,
-                         m_i=1.2,
-                         l_i=.8, h=0.001, k=10.2)
+                         m_i=1.5,
+                         l_i=.5, h=0.001, k=12)
   database = Database()
   database.load("src/openai/real_world.npz")
   estimator = Estimator(database, guess_param)
+
+  print("Counting time to compute objective function evaluated at real world param...")
+  start_t = time.time()
+  x = [1.0, 1.0, 10.0]
+  value = estimator.I(x)
+  assert value == 0.0, f"Minimum isn't achieved, having {value} instead of 0.0"
+  print(f"Compute distance requires {time.time() - start_t} seconds")
 
   estimate = estimator.estimate_real_env_param()
