@@ -46,3 +46,5 @@ Please change the parameters in `src/parameters.txt`.
 Contained in `src/openai/`.
 
 Using the MuJoCo environment and implementing ARS algorithm using OpenAI Gym.
+
+Run `python src/openai/plot.py` to reproduce results on Wiki page.
