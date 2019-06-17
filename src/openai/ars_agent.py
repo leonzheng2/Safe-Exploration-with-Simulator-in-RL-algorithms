@@ -2,6 +2,7 @@ import ray
 import numpy as np
 from src.openai.environment import Environment
 from src.openai.database import Database
+import warnings
 from src.openai.estimator import Estimator
 
 
@@ -9,21 +10,33 @@ from src.openai.estimator import Estimator
 class ARSAgent():
 
   def __init__(self, real_env_param, agent_param, data_path=None,
-               seed=None, guess_param=None):
+               seed=None, guess_param=None, approx_error=None):
     # Environment
     self.real_env_param = real_env_param
     self.real_world = Environment(real_env_param)
 
     # Database
-    agent_param.safe = (data_path is not None)
     self.database = Database()
     if agent_param.safe:
       self.database.load(data_path)
+
       # Estimator
-      self.estimator = Estimator(self.database, guess_param)
-      self.estimated_param = self.estimator.estimate_real_env_param()
-      # CHEATING
-      # self.estimated_param = self.real_env_param
+      if guess_param is not None and data_path is not None:
+        print("Using computed estimation...")
+        self.estimator = Estimator(self.database, guess_param, capacity=1)
+        self.estimated_param = self.estimator.estimate_real_env_param()
+      else:
+        if approx_error is not None:
+          print("Using approximated estimation...")
+          nu = approx_error
+          self.estimated_param = self.real_env_param
+          self.estimated_param.m_i += nu
+          self.estimated_param.l_i += nu
+          self.estimated_param.k += nu
+        else:
+          print("Using exact estimation...")
+          self.estimated_param = self.real_env_param
+      print(f"Used estimation: {self.estimated_param}")
 
     # Agent linear policy
     if agent_param.initial_w == 'Zero':
@@ -32,7 +45,8 @@ class ARSAgent():
     else:
       self.policy = np.load(agent_param.initial_w)
       assert self.policy.shape == (self.real_world.env.action_space.shape[0],
-                              self.real_world.env.observation_space.shape[0])
+                                   self.real_world.env.observation_space.shape[
+                                     0])
 
     # Agent parameters
     self.agent_param = agent_param
@@ -116,11 +130,10 @@ class ARSAgent():
           reward, saved_states = \
             self.real_world.rollout(policy, covariance=self.covariance,
                                     mean=self.mean)
-          if self.agent_param.safe:
-            assert (reward > self.agent_param.threshold), \
-            f"Obtained in real world rollout a " \
-              f"return of {reward}, below the " \
-              f"threshold {self.agent_param.threshold}"
+          if self.agent_param.safe and reward > self.agent_param.threshold:
+            print(f"Obtained in real world rollout a "
+                  f"return of {reward}, below the "
+                  f"threshold {self.agent_param.threshold}")
           rewards.append(reward)
           if not self.agent_param.V1:
             self.saved_states += saved_states
@@ -146,9 +159,6 @@ class ARSAgent():
 
     :return: array of float. Rewards obtained after each iteration.
     """
-    # Estimation
-
-
     # Initialization
     rewards = [np.mean(self.runOneIteration())]
 

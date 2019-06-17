@@ -6,10 +6,10 @@ from src.openai.parameters import EnvParam
 import cma
 import time
 
+
 class Estimator:
 
-  def __init__(self, database, guess_param, unknowns=('m_i', 'l_i', 'k'),
-               capacity=1):
+  def __init__(self, database, guess_param, capacity, unknowns=('m_i', 'l_i', 'k')):
     assert database.size > 0, "Database is empty"
     assert len(
       database.trajectories[0]) == guess_param.H, "Rollouts are not the same"
@@ -38,9 +38,9 @@ class Estimator:
 
       real_states = trajectory[1:]
 
-      dist = 1/len(real_states) * np.sum(np.linalg.norm(sim_states - real_states, ord=2, axis=1))
+      dist = np.sum(np.linalg.norm(sim_states - real_states, ord=2, axis=1))
       distances.append(dist)
-    return np.mean(distances)
+    return np.sum(distances)
 
   def J(self, x):
     distances = []
@@ -90,11 +90,11 @@ class Estimator:
 
 if __name__ == '__main__':
   guess_param = EnvParam(name="Simulator with estimation", n=3, H=1000,
-                         m_i=1.5,
-                         l_i=.5, h=0.001, k=12)
+                         m_i=1.01,
+                         l_i=1.01, h=0.001, k=10.01)
   database = Database()
   database.load("src/openai/real_world.npz")
-  estimator = Estimator(database, guess_param)
+  estimator = Estimator(database, guess_param, capacity=1)
 
   print("Counting time to compute objective function evaluated at real world param...")
   start_t = time.time()
