@@ -2,7 +2,6 @@ import ray
 import numpy as np
 from src.openai.environment import Environment
 from src.openai.database import Database
-import warnings
 from src.openai.estimator import Estimator
 
 
@@ -10,7 +9,7 @@ from src.openai.estimator import Estimator
 class ARSAgent():
 
   def __init__(self, real_env_param, agent_param, data_path=None,
-               seed=None, guess_param=None, approx_error=None):
+               seed=None, guess_param=None, approx_error=None, sim_thresh=None):
     # Environment
     self.real_env_param = real_env_param
     self.real_world = Environment(real_env_param)
@@ -28,15 +27,27 @@ class ARSAgent():
       else:
         if approx_error is not None:
           print("Using approximated estimation...")
-          nu = approx_error
+          unknowns = ('m_i', 'l_i', 'k')
+          delta = np.random.rand(len(unknowns))
+          delta = delta / np.linalg.norm(delta, ord=2) * approx_error
           self.estimated_param = self.real_env_param
-          self.estimated_param.m_i += nu
-          self.estimated_param.l_i += nu
-          self.estimated_param.k += nu
+          self.estimated_param.name = 'LeonSwimmer-Simulator'
+          self.estimated_param.m_i += delta[0]
+          self.estimated_param.l_i += delta[1]
+          self.estimated_param.k += delta[2]
         else:
           print("Using exact estimation...")
           self.estimated_param = self.real_env_param
       print(f"Used estimation: {self.estimated_param}")
+
+      # Set simulation threshold
+      if sim_thresh is not None:
+        epsilon = real_env_param.epsilon
+        alpha = sim_thresh.compute_alpha(agent_param.H)
+        self.sim_threshold = agent_param.threshold + alpha*epsilon
+        print(f"Simulator threshold is {self.sim_threshold}")
+      else: # TODO compute sim_threshold
+        ...
 
     # Agent linear policy
     if agent_param.initial_w == 'Zero':
@@ -115,13 +126,13 @@ class ARSAgent():
         simulator = Environment(self.estimated_param)
         reward_1, _ = simulator.rollout(policy_1, covariance=self.covariance,
                                         mean=self.mean)
-        if reward_1 <= self.agent_param.threshold:
+        if reward_1 <= self.sim_threshold:
           do_real_rollout = False
         else:
           reward_2, _ = simulator.rollout(policy_2,
                                           covariance=self.covariance,
                                           mean=self.mean)
-          if reward_2 <= self.agent_param.threshold:
+          if reward_2 <= self.sim_threshold:
             do_real_rollout = False
 
       if do_real_rollout:
@@ -130,7 +141,7 @@ class ARSAgent():
           reward, saved_states = \
             self.real_world.rollout(policy, covariance=self.covariance,
                                     mean=self.mean)
-          if self.agent_param.safe and reward > self.agent_param.threshold:
+          if self.agent_param.safe and reward < self.agent_param.threshold:
             print(f"Obtained in real world rollout a "
                   f"return of {reward}, below the "
                   f"threshold {self.agent_param.threshold}")

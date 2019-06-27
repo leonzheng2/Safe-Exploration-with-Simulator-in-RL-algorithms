@@ -84,7 +84,7 @@ class SwimmerEnv(gym.Env):
     # theta_dot = theta_dot + self.h * theta_dotdot
     # theta = theta + self.h * theta_dot
 
-    # Explicit Euler intergration
+    # Explicit Euler integration
     save_theta_dot = np.array(theta_dot, copy=True)
     G_dot = G_dot + self.h * G_dotdot
     theta_dot = theta_dot + self.h * theta_dotdot
