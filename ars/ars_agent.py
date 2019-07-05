@@ -1,8 +1,8 @@
 import ray
 import numpy as np
-from src.openai.environment import Environment
-from src.openai.database import Database
-from src.openai.estimator import Estimator
+from ars.environment import Environment
+from ars.database import Database
+from ars.estimator import Estimator
 
 
 @ray.remote

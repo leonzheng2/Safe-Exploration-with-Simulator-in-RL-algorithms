@@ -45,4 +45,4 @@ def pick_sub_database(data_path, size, sub_data_path):
 
 if __name__ == '__main__':
   size = 10
-  pick_sub_database("src/openai/real_world.npz", size, f"src/openai/real_world_sub_{size}")
+  pick_sub_database("src/ars/real_world.npz", size, f"src/ars/real_world_sub_{size}")

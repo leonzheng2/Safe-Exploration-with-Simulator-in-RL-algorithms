@@ -1,8 +1,8 @@
 import numpy as np
 import dataclasses
-from src.openai.database import Database
-from src.openai.environment import Environment
-from src.openai.parameters import EnvParam
+from ars.database import Database
+from ars.environment import Environment
+from ars.parameters import EnvParam
 import cma
 import time
 
@@ -93,7 +93,7 @@ if __name__ == '__main__':
                          m_i=1.01,
                          l_i=1.01, h=0.001, k=10.01)
   database = Database()
-  database.load("src/openai/real_world.npz")
+  database.load("src/ars/real_world.npz")
   estimator = Estimator(database, guess_param, capacity=1)
 
   print("Counting time to compute objective function evaluated at real world param...")

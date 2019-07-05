@@ -1,5 +1,5 @@
-from src.openai.experiment import Experiment
-from src.openai.parameters import EnvParam, ARSParam
+from ars.experiment import Experiment
+from ars.parameters import EnvParam, ARSParam
 import ray
 
 # Initialize ray for parallel computations over seeds

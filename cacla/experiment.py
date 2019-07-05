@@ -1,5 +1,5 @@
 from gym.envs.swimmer.remy_swimmer_env import SwimmerEnv
-from src.cacla.cacla_agent import CACLA_agent
+from cacla.cacla_agent import CACLA_agent
 import matplotlib.pyplot as plt
 import numpy as np
 import ray
@@ -9,10 +9,10 @@ def experience(gamma, alpha, sigma):
     # Initialization
     H = 100
     env = SwimmerEnv()
-    agent = CACLA_agent(gamma=gamma, alpha=alpha, sigma=sigma, H=H)
 
     # Train the agent
     n_iter = 10000
+    agent = CACLA_agent(gamma=gamma, alpha=alpha, sigma=sigma, H=H)
     rewards = agent.run(env, n_iter, train=True)
     print(f"Last rewards of the experience gamma={round(gamma, 3)}, alpha={alpha}, sigma={sigma}: {rewards[-1]}")
 
@@ -21,8 +21,8 @@ def experience(gamma, alpha, sigma):
     plt.plot(timesteps, rewards, label=f"gamma={round(gamma, 3)}, alpha={alpha}, sigma={sigma}")
     plt.legend()
     plt.xlabel("Timesteps")
-    plt.ylabel(f"Sum of last {H} steps")
-    plt.title("CACLA learning curve")
+    plt.ylabel(f"Sum of last {H} rewards")
+    plt.title(f"CACLA on {env.envName} learning curve")
     plt.savefig(f"results/cacla/gamma={round(gamma, 3)}_alpha={alpha}_sigma={sigma}.png")
     plt.close()
 

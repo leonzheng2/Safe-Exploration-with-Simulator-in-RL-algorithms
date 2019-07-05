@@ -1,8 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import ray
-from src.openai.parameters import EnvParam, ARSParam, Threshold
-from src.openai.ars_agent import ARSAgent
+from ars.ars_agent import ARSAgent
 
 
 class Experiment():
