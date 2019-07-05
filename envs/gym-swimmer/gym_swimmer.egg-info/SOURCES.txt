@@ -1,5 +1,0 @@
-gym_swimmer.egg-info/PKG-INFO
-gym_swimmer.egg-info/SOURCES.txt
-gym_swimmer.egg-info/dependency_links.txt
-gym_swimmer.egg-info/requires.txt
-gym_swimmer.egg-info/top_level.txt
