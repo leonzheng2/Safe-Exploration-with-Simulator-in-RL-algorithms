@@ -12,7 +12,7 @@ class TwoLayersNet(nn.Module):
 
     def forward(self, x):
         x = x.double()
-        x = F.leaky_relu(self.linear1(x))
+        x = F.relu(self.linear1(x))
         return self.linear2(x)
 
     def update_weights(self, step, x):
