@@ -24,7 +24,7 @@ def experience(env, gamma, alpha, sigma, n_iter, H):
     rewards = []
     for seed in range(3):
         agent = CACLA_agent(gamma=gamma, alpha=alpha, sigma=sigma)
-        rewards.append(agent.run(env, n_iter, H=H, train=True, render=True))
+        rewards.append(agent.run(env, n_iter, H=H, train=True, render=False))
 
     # Window convolve
     for i in range(len(rewards)):
@@ -48,7 +48,7 @@ def experience(env, gamma, alpha, sigma, n_iter, H):
     plt.close()
 
 # Initialization
-env = gym.make('InvertedPendulum-v2')
+env = gym.make('Swimmer-v2')
 
 # Train
 gammas = [0.0, 0.8, 0.9, 0.95, 0.99]
