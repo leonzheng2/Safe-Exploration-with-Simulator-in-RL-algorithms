@@ -106,3 +106,60 @@ class CACLA_agent:
                 print(f"Iteration {i}/{n_iter}: reward: {reward}")
 
         return rewards
+
+
+class CACLA_LQR_agent:
+
+    def __init__(self, env):
+        self.env = env
+        # Function approximators
+        n_obs = env.observation_space.shape[0]
+        n_ac = env.action_space.shape[0]
+        self.F = np.zeros((n_ac, n_obs))
+        self.V = np.zeros(n_obs)
+
+
+    def forward_action_FA(self, state):
+        state = np.array(state)
+        return self.F @ state
+
+    def backward_action_FA(self, alpha, action, state, FA_action):
+        (n_ac, n_obs) = self.F.shape
+        for i in range(n_ac):
+            for j in range(n_obs):
+                self.F[i, j] += alpha * (action[i] - FA_action[i]) * (state[j])
+
+    def forward_value_FA(self, state):
+        state_squared = state ** 2
+        return self.V.transpose() @ state_squared
+
+    def backward_value_FA(self, alpha, delta, state):
+        n_obs = self.V.shape[0]
+        for j in range(n_obs):
+            self.V[j] += alpha * delta * state[j] ** 2
+
+    def run(self, n_iter, gamma, alpha, sigma, H=1000):
+
+        rewards = []
+        state = self.env.reset() # Initialization
+        for i in range(n_iter):
+            FA_act = self.forward_action_FA(state)  # Actor function approximation
+            # print(f"FA_act = {FA_act}")
+            action = np.random.multivariate_normal(FA_act, sigma * np.identity(len(FA_act)))  # Gaussian policy
+            # print(action)
+            new_state, reward, done, info = self.env.step(action)  # Environment step
+            # print(f"Value: {critic.approximate_value(state)}")
+            temp_diff = reward + gamma * self.forward_value_FA(new_state) - self.forward_value_FA(state) # Temporal difference
+            self.backward_value_FA(alpha, temp_diff, state)  # Update critic FA
+            # print(f"Temporal difference: {temp_diff}")
+            if temp_diff > 0:
+                self.backward_action_FA(alpha, action, state, FA_act)  # CACLA
+            state = new_state
+
+            rewards.append(reward)
+            # if done:
+            #     break
+            if i%H == 0 and i > 0:
+                print(f"Iteration {i}/{n_iter}: reward: {reward}")
+
+        return rewards
