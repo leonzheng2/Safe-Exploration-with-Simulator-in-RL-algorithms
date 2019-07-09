@@ -146,9 +146,7 @@ class CACLA_LQR_agent:
             FA_act = self.forward_action_FA(state)  # Actor function approximation
             # print(f"FA_act = {FA_act}")
             action = np.random.multivariate_normal(FA_act, sigma * np.identity(len(FA_act)))  # Gaussian policy
-            # print(action)
             new_state, reward, done, info = self.env.step(action)  # Environment step
-            # print(f"Value: {critic.approximate_value(state)}")
             temp_diff = reward + gamma * self.forward_value_FA(new_state) - self.forward_value_FA(state) # Temporal difference
             self.backward_value_FA(alpha, temp_diff, state)  # Update critic FA
             # print(f"Temporal difference: {temp_diff}")
