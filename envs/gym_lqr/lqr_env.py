@@ -6,12 +6,12 @@ import numpy as np
 
 class LinearQuadReg(gym.Env):
 
-    def __init__(self, A, B, E, F):
+    def __init__(self, A, B, Q, R):
         # Parameters
         self.A = A
         self.B = B
-        self.E = E
-        self.F = F
+        self.Q = Q
+        self.R = R
 
         # Space
         n_obs = A.shape[1]
@@ -23,10 +23,11 @@ class LinearQuadReg(gym.Env):
     def step(self, action: np.ndarray):
         action = np.array(action)
         obs = self.A @ self.state + self.B @ action
-        rew = - (self.state.transpose() @ self.E @ self.state + action.transpose() @ self.F @ action)
+        self.state = obs
+        rew = - (self.state.transpose() @ self.Q @ self.state + action.transpose() @ self.R @ action)
         return obs, rew, False, {}
 
     def reset(self):
-        self.state = np.zeros(self.observation_space.shape[0])
+        self.state = np.random.rand(self.observation_space.shape[0])
         return self.state
 
