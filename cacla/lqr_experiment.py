@@ -49,7 +49,7 @@ for alpha in alphas:
 
     # Agent
     agent = CACLA_LQR_agent(lqr_2)
-    results = agent.run(n_iter, gamma, alpha, sigma)
+    _, _, results = agent.run(n_iter, gamma, alpha, sigma)
     print(agent.F)
     distance.append(np.linalg.norm(agent.F - optimal_F))
 

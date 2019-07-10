@@ -139,8 +139,11 @@ class CACLA_LQR_agent:
             self.V[j] += alpha * delta * state[j] ** 2
 
     def run(self, n_iter, gamma, alpha, sigma, H=1000):
-
+        # Save
+        states = []
+        actions = []
         rewards = []
+
         state = self.env.reset() # Initialization
         for i in range(n_iter):
             FA_act = self.forward_action_FA(state)  # Actor function approximation
@@ -152,12 +155,14 @@ class CACLA_LQR_agent:
             # print(f"Temporal difference: {temp_diff}")
             if temp_diff > 0:
                 self.backward_action_FA(alpha, action, state, FA_act)  # CACLA
-            state = new_state
 
+            states.append(state)
+            actions.append(action)
             rewards.append(reward)
+            state = new_state
             # if done:
             #     break
             if i%H == 0 and i > 0:
                 print(f"Iteration {i}/{n_iter}: reward: {reward}")
 
-        return rewards
+        return np.array(states), np.array(actions), np.array(rewards)
