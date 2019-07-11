@@ -25,7 +25,7 @@ class LinearQuadReg(gym.Env):
         obs = self.A @ self.state + self.B @ action
         self.state = obs
         rew = - (self.state.transpose() @ self.Q @ self.state + action.transpose() @ self.R @ action)
-        return obs, rew, False, {}
+        return obs, rew, False, {'action': action}
 
     def reset(self):
         self.state = np.random.rand(self.observation_space.shape[0])
@@ -62,8 +62,9 @@ class BoundedEasyLinearQuadReg(EasyParamLinearQuadReg):
 
     def step(self, action: np.ndarray):
         action = np.array(action)
+        action = self.reset_inbound(action, self.max_a)
         obs = self.A @ self.state + self.B @ action
         obs = self.reset_inbound(obs, self.max_s)
         self.state = obs
         rew = - (self.state.transpose() @ self.Q @ self.state + action.transpose() @ self.R @ action)
-        return obs, rew, False, {}
+        return obs, rew, False, {'action': action}

@@ -73,7 +73,7 @@ class CACLA_LQR_SE_agent:
                     self.backward_action_FA(alpha, action, state, FA_act)  # CACLA
 
                 states.append(state)
-                actions.append(action)
+                actions.append(info['action'])
                 rewards.append(reward)
                 state = new_state
             else:
@@ -109,7 +109,6 @@ class CACLA_Bounded_LQR_SE_agent(CACLA_LQR_SE_agent):
         for i in range(n_iter):
             FA_act = self.forward_action_FA(state)  # Actor function approximation
             action = np.random.multivariate_normal(FA_act, sigma * np.identity(len(FA_act)))  # Gaussian policy
-            action = self.real_env.reset_inbound(action, self.real_env.max_a)
             # Safe Exploration
             sim_constraint = Constraint(self.constraint.cost, self.sim_threshold, self.constraint.L_c)
             self.simulator.set_state(state)
@@ -124,7 +123,7 @@ class CACLA_Bounded_LQR_SE_agent(CACLA_LQR_SE_agent):
                     self.backward_action_FA(alpha, action, state, FA_act)  # CACLA
 
                 states.append(state)
-                actions.append(action)
+                actions.append(info['action'])
                 rewards.append(reward)
                 state = new_state
             else:

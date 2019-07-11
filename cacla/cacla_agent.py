@@ -157,7 +157,7 @@ class CACLA_LQR_agent:
                 self.backward_action_FA(alpha, action, state, FA_act)  # CACLA
 
             states.append(state)
-            actions.append(action)
+            actions.append(info['action'])
             rewards.append(reward)
             state = new_state
             # if done:
