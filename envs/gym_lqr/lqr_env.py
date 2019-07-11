@@ -31,3 +31,17 @@ class LinearQuadReg(gym.Env):
         self.state = np.random.rand(self.observation_space.shape[0])
         return self.state
 
+    def set_state(self, state):
+        self.state = state
+
+
+class EasyParamLinearQuadReg(LinearQuadReg):
+
+    def __init__(self, theta):
+        A = np.array([[0, 1], [1, 0]]) * theta
+        B = np.array([[0], [1]]) * theta
+        Q = np.array([[1, 0], [0, 1]])
+        R = np.array([[1]])
+        super().__init__(A, B, Q, R)
+        self.op_norm_der_A = 1
+        self.op_norm_der_B = 1
