@@ -1,9 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import queue
-from envs.gym_lqr.lqr_env import EasyParamLinearQuadReg
+from envs.gym_lqr.lqr_env import EasyParamLinearQuadReg, BoundedEasyLinearQuadReg
 from cacla.cacla_agent import CACLA_LQR_agent
-from cacla.cacla_safe_agent import Constraint, CACLA_LQR_SE_agent
+from cacla.cacla_safe_agent import Constraint, CACLA_LQR_SE_agent, CACLA_Bounded_LQR_SE_agent
 
 
 def window_convolution(a, H):
@@ -25,11 +25,11 @@ seed = np.random.randint(2**32)
 
 ### LQR Real World
 theta_real = 1.0
-lqr_real = EasyParamLinearQuadReg(theta_real)
+lqr_real = BoundedEasyLinearQuadReg(theta_real, max_s=2, max_a=1)
 
 ### LQR Simulator
 theta_sim = 0.99
-lqr_sim = EasyParamLinearQuadReg(theta_sim)
+lqr_sim = BoundedEasyLinearQuadReg(theta_sim, max_s=2, max_a=1)
 
 ### Agent
 n_iter = 200000
@@ -46,11 +46,11 @@ print(agent.F)
 # CACLA with Safe Exploration
 np.random.seed(seed)
 epsilon = abs(theta_real - theta_sim)
-cost = lambda x: np.linalg.norm(x, 1)
-L_c = 2
+cost = lambda x: np.linalg.norm(x, np.inf)
+L_c = 1
 l = 1
 constraint = Constraint(cost, l, L_c)
-safe_agent = CACLA_LQR_SE_agent(lqr_real, lqr_sim, epsilon, constraint)
+safe_agent = CACLA_Bounded_LQR_SE_agent(lqr_real, lqr_sim, epsilon, constraint)
 states_2, actions_2, rewards_2 = safe_agent.run(n_iter, gamma, alpha, sigma)
 print(safe_agent.F)
 
@@ -97,6 +97,6 @@ ax[2,1].set_ylabel(f"Average of the last {H} rewards")
 ax[2,1].set_title(f"Average rewards, without Safe Exploration")
 
 plt.suptitle(f"Easy parameterized LQR (theta_real={theta_real}, theta_sim={theta_sim})\nCACLA (gamma={round(gamma, 3)}, alpha={alpha}, sigma={sigma})")
-plt.savefig(f"results/cacla/Safe_LQR/1_theta_real={theta_real}_theta_sim={theta_sim}_gamma={round(gamma, 3)}_alpha={alpha}_sigma={sigma}_rewards.png")
+plt.savefig(f"results/cacla/Safe_LQR/2_bounded_theta_real={theta_real}_theta_sim={theta_sim}_gamma={round(gamma, 3)}_alpha={alpha}_sigma={sigma}_rewards.png")
 # plt.show()
 plt.close()
