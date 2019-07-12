@@ -1,3 +1,10 @@
+"""
+Implementation of Augmented Random Search
+With or without Safe Exploration
+The constraint considered here is that the return of a real world rollout should be larger than a fixed value.
+"""
+
+
 import ray
 import numpy as np
 from ars.environment import Environment
@@ -7,9 +14,23 @@ from ars.estimator import Estimator
 
 @ray.remote
 class ARSAgent():
+  """
+  ARS Agent for solving RL tasks. With or without Safe Exploration.
+  """
 
   def __init__(self, real_env_param, agent_param, data_path=None,
                seed=None, guess_param=None, approx_error=None, sim_thresh=None):
+    """
+    Constructor with all parameters.
+    :param real_env_param: Swimmer environment parameters for the real world
+    :param agent_param: ARS parameters
+    :param data_path: path for loading the real world trajectories in order to use environment parameters estimation
+    :param seed: random seed
+    :param guess_param: approximate real world parameters
+    :param approx_error: approximation error
+    :param sim_thresh: choose a given simulator threshold
+    """
+
     # Environment
     self.real_env_param = real_env_param
     self.real_world = Environment(real_env_param)

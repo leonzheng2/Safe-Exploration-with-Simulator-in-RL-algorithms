@@ -1,3 +1,7 @@
+"""
+Class for manipulating trajectories. Save, load, add trajectories.
+"""
+
 import numpy as np
 
 

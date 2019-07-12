@@ -1,3 +1,10 @@
+"""
+Estimate the real world parameter using simulations.
+Two objective functions to optimize are possible. I(x) has better results.
+Algorithm used to solve the optimization problem: CMA-ES.
+"""
+
+
 import numpy as np
 import dataclasses
 from ars.database import Database
@@ -10,6 +17,13 @@ import time
 class Estimator:
 
   def __init__(self, database, guess_param, capacity, unknowns=('m_i', 'l_i', 'k')):
+    """
+    Constructor.
+    :param database: Database of trajectories
+    :param guess_param: initilization for the algorithm
+    :param capacity: number of trajectories included in the objective function
+    :param unknowns: parameters names
+    """
     assert database.size > 0, "Database is empty"
     assert len(
       database.trajectories[0]) == guess_param.H, "Rollouts are not the same"
@@ -20,6 +34,11 @@ class Estimator:
     self.iter = 0
 
   def I(self, x):
+    """
+    Objective function. Faster and more stable.
+    :param x: vector
+    :return: real value
+    """
     distances = []
     for k in self.subset:
       policy = self.database.policies[k]
@@ -43,6 +62,11 @@ class Estimator:
     return np.sum(distances)
 
   def J(self, x):
+    """
+    Deprecated objective function.
+    :param x: vector
+    :return: real value
+    """
     distances = []
     for k in self.subset:
       policy = self.database.policies[k]
@@ -63,6 +87,10 @@ class Estimator:
     return s
 
   def estimate_real_env_param(self):
+    """
+    Apply CMA-ES to obtain the minimum of the objective function.
+    :return: vector, estimation of real world parameters
+    """
     print(f"------ Estimating the real world environment parameters ------")
     assert self.guess_param is not None, "No initial guess for real world parameters (no initialization for optimization problem)"
     print("Extracting the initial guess of real world parameters...")
@@ -82,6 +110,11 @@ class Estimator:
     return env_param
 
   def convert_to_env_param(self, x):
+    """
+    Helper function for manipulating environment parameters object.
+    :param x: vector
+    :return: EnvParam
+    """
     dict = dataclasses.asdict(self.guess_param)
     for i in range(len(self.unknowns)):
       dict[self.unknowns[i]] = x[i]
@@ -91,7 +124,7 @@ class Estimator:
 if __name__ == '__main__':
   guess_param = EnvParam(name="Simulator with estimation", n=3, H=1000,
                          m_i=1.01,
-                         l_i=1.01, h=0.001, k=10.01)
+                         l_i=1.01, h=0.001, k=10.01, epsilon=0.01)
   database = Database()
   database.load("src/ars/real_world.npz")
   estimator = Estimator(database, guess_param, capacity=1)

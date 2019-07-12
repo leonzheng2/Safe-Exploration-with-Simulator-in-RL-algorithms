@@ -1,3 +1,13 @@
+"""
+Script for Safe Exploration, ARS on Swimmer task
+Set real world parameters at variable `real_env_param`.
+Set the initial guess of the real world parameters at variable `guess_param`
+Set the ARS parameters of the first agent `hand_agent`, which doesn't use Safe Exploration.
+We save the obtained policy.
+Then we initialize `real_agent` to use this transfered policy and use Safe exploration. Set its parameters at variable `real_agent`.
+"""
+
+
 import numpy as np
 import matplotlib.pyplot as plt
 import ray
@@ -39,6 +49,8 @@ K = 1
 A = 1
 B = 0.001
 H = 1000
+
+# Use several simulator threshold to find a valid and efficient one.
 for A in [0.1, 0.3, 0.5, 0.7]:
   sim_thresh = Threshold(K=K, A=A, B=B)
   alpha = sim_thresh.compute_alpha(H)
@@ -48,6 +60,7 @@ for A in [0.1, 0.3, 0.5, 0.7]:
   min_return = []
   max_mean_returns = []
 
+  #
   for epsilon in epsilon_range:
     real_env_param = EnvParam('LeonSwimmer-RealWorld', n=3, H=H, l_i=.8,
                               m_i=1.2,
@@ -68,6 +81,7 @@ for A in [0.1, 0.3, 0.5, 0.7]:
     mean = np.mean(r_graphs, axis=0)
     max_mean_returns.append(np.nanmax(mean))
 
+  # Plot the results
   plt.figure(figsize=(10, 8))
   plt.plot(epsilon_range, min_return, marker='o', label="Minimum return")
   plt.plot(epsilon_range, max_mean_returns, marker='o',

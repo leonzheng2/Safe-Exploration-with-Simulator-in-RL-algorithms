@@ -1,3 +1,9 @@
+"""
+Wraper class for creating instances of experiences, given environment, agent parameters.
+Set up environments, run ARS agents tranings, obtain the results.
+Plot learning curves.
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 import ray

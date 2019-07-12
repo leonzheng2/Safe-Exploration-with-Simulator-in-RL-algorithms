@@ -1,3 +1,8 @@
+"""
+Script for transfering the policy learned in LeonSwimmer to MuJoCo Swimmer.
+"""
+
+
 import numpy as np
 import gym
 from ars.experiment import Experiment

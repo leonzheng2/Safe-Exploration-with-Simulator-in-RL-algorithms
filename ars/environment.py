@@ -1,3 +1,8 @@
+"""
+Class for doing rollouts on a given environment.
+"""
+
+
 from gym.envs.swimmer.remy_swimmer_env import SwimmerEnv
 import numpy as np
 
