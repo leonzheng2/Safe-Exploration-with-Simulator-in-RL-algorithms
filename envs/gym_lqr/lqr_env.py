@@ -1,10 +1,22 @@
-""" Inifinte-horizon, discrete-time LQR"""
+"""
+Inifinte-horizon, discrete-time LQR
+
+`A \in R^{nxn}`, `B \in R^{nxm}`, `Q \in R^{nxn}`, `R \in R^{mxm}`
+Linear system: `x[k+1] = A x[k] + B u[k]` where `x[k] \in R^n`: state, `u[k] \in R^m`: action/control input
+Cost function: `c[k+1] = x[k]^T Q x[k] + u[k]^T R u[k]`
+Controllable: $`\mathrm{rank}(B, AB, A^2B, ...., A^{n-1}B) = n`$
+Q, R: symmetric, i.e., `Q^T = Q`, `R^T = R`
+Q is positive semi-definite, R is positive definite
+"""
 
 import gym
 from gym import spaces
 import numpy as np
 
 class LinearQuadReg(gym.Env):
+    """
+    Basic LQR class. Parameters: A, B, Q, R are matrices satisfying the definition above.
+    """
 
     def __init__(self, A, B, Q, R):
         # Parameters
@@ -36,6 +48,9 @@ class LinearQuadReg(gym.Env):
 
 
 class EasyParamLinearQuadReg(LinearQuadReg):
+    """
+    For studying sim-real transfer, we implement this toy problem. The matrices are parameterized by theta \in R.
+    """
 
     def __init__(self, theta):
         A = np.array([[0, 1], [1, 0]]) * theta
@@ -48,6 +63,9 @@ class EasyParamLinearQuadReg(LinearQuadReg):
 
 
 class BoundedEasyLinearQuadReg(EasyParamLinearQuadReg):
+    """
+    LQR with bounded state-action space.
+    """
 
     def __init__(self, theta, max_s, max_a):
         super().__init__(theta)
