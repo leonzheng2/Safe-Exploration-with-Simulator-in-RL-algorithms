@@ -20,6 +20,6 @@ Q is positive semi-definite, R is positive definite
 
 ## Swimmer Task
 
-See 'gym_swimmer'.
+See `gym_swimmer/`.
 
-Code adpated from [Remi Coulom's implementation](https://www.remi-coulom.fr/swimmer.tar.bz2)
+Code adpated from [Remi Coulom's implementation](https://www.remi-coulom.fr/swimmer.tar.bz2).
