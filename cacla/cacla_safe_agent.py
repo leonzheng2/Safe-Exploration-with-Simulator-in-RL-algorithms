@@ -140,7 +140,9 @@ class CACLA_Bounded_LQR_SE_agent(CACLA_LQR_SE_agent):
         """
         super().__init__(real_env, simulator, epsilon, constraint)
         self.simulator = simulator
-        L_theta = self.simulator.op_norm_der_A * real_env.max_s + self.simulator.op_norm_der_B * real_env.max_a
+        n_obs = real_env.observation_space.shape[0]
+        n_ac = real_env.action_space.shape[0]
+        L_theta = self.simulator.op_norm_der_A * np.sqrt(n_obs) * real_env.max_s + self.simulator.op_norm_der_B * np.sqrt(n_ac) * real_env.max_a
         self.sim_threshold = self.constraint.l - epsilon * constraint.L_c * L_theta
 
     def run(self, n_iter, gamma, alpha, sigma, H=1000):
