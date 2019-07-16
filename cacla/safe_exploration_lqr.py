@@ -63,8 +63,8 @@ print(agent.F)
 # CACLA with Safe Exploration
 np.random.seed(seed)
 epsilon = abs(theta_real - theta_sim)
-cost = lambda x: np.linalg.norm(x, np.inf)
-L_c = 1
+cost = lambda x: np.linalg.norm(x, 1)
+L_c = 2
 l = 3
 constraint = Constraint(cost, l, L_c)
 safe_agent = CACLA_Bounded_LQR_SE_agent(lqr_real, lqr_sim, epsilon, constraint)
@@ -120,6 +120,6 @@ ax[2,1].set_ylabel(f"Average of the last {H} rewards")
 ax[2,1].set_title(f"Average rewards, with Safe Exploration")
 
 plt.suptitle(f"Easy parameterized LQR (theta_real={theta_real}, theta_sim={theta_sim})\nCACLA (gamma={round(gamma, 3)}, alpha={alpha}, sigma={sigma})")
-plt.savefig(f"results/cacla/Safe_LQR/Problem-B/1_theta_real={theta_real}_theta_sim={theta_sim}_gamma={round(gamma, 3)}_alpha={alpha}_sigma={sigma}_rewards.png")
+plt.savefig(f"results/cacla/Safe_LQR/Problem-B/2_theta_real={theta_real}_theta_sim={theta_sim}_gamma={round(gamma, 3)}_alpha={alpha}_sigma={sigma}_rewards.png")
 # plt.show()
 plt.close()
