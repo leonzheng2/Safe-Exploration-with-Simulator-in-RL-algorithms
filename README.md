@@ -23,7 +23,7 @@ For the [RL-Glue](http://www.jmlr.org/papers/volume10/tanner09a/tanner09a.pdf) v
 
 First version of Safe Exploration with _reward constraint_ can be found in the directory `ars/`.
 
-It focuses on the use of [ARS algorithm](https://arxiv.org/pdf/1803.07055.pdf) for solving Swimmer task, with and withour Safe Exploration.
+It focuses on the use of [Augmented Random Search](https://arxiv.org/pdf/1803.07055.pdf) for solving Swimmer task, with and withour Safe Exploration.
 
 This work helped to stress out the difficulty of using Safe Exploration for long rollouts algorithms.
 
@@ -32,3 +32,5 @@ This work helped to stress out the difficulty of using Safe Exploration for long
 Second version of Safe Exploration with _state constraint_ can be found in the directory `cacla/`.
 
 Here, we use easy parameterized instances of Linear Quadratic Regulator to show the validity of the Safe Exploration algorithm.
+
+Reinforcement learning algorithms used here to solve the tasks use short rollouts, such as [Continuous Actor Critic Learning Automaton](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.75.7658&rep=rep1&type=pdf).
