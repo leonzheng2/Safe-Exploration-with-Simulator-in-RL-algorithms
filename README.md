@@ -1,5 +1,7 @@
 # Research Internship at FLL (April - August 2019)
 
+Work by Léon Zheng (Ecole polytechnique, FLL) under the supervision of Iwane Hidenao (FLL).
+
 ## Requirements
 
 Installation of the followings are required:
