@@ -8,7 +8,7 @@ For using Safe Exploration with CACLA on LQR without assumption of bounded state
 
 import numpy as np
 from cacla.cacla_agent import CACLA_LQR_agent
-from envs.gym_lqr.lqr_env import EasyParamLinearQuadReg, BoundedEasyLinearQuadReg
+from envs.gym_lqr.lqr_env import EasyParamLinearQuadReg, BoundedEasyLinearQuadReg, EasyAffineQuadReg
 
 class Constraint():
     """
@@ -123,27 +123,24 @@ class CACLA_LQR_SE_agent(CACLA_LQR_agent):
         return np.array(states), np.array(actions), np.array(rewards)
 
 
-class CACLA_Bounded_LQR_SE_agent(CACLA_LQR_SE_agent):
+class CACLA_LQR_SE_fix(CACLA_LQR_SE_agent):
     """
-    Implementation of CACLA using Safe Exploration for solving LQR, with assumption of bounded state and action spaces.
-    The agent always satifies a given safety constraint.
-    It computes a simulator threshold at each timestep, given the current state and action.
+    Class for using Safe Exploration by using the same L_theta Lipschitz constant at each timestep.
+    No need to recompute the simulator threshold.
     """
 
-    def __init__(self, real_env: BoundedEasyLinearQuadReg, simulator: BoundedEasyLinearQuadReg, epsilon, constraint):
+    def __init__(self, real_env, simulator, epsilon, constraint):
         """
         Constructor.
-        :param real_env: BoundedEasyLinearQuadReg, representing the real world environment, with unknown real world parameter
-        :param simulator: BoundedEasyLinearQuadReg, representing the simulator environmnet, with estimated real world parameter
+        :param real_env: real world environment, with unknown real world parameter
+        :param simulator: simulator environmnet, with estimated real world parameter
         :param epsilon: approximation error
         :param constraint: Constraint
         """
         super().__init__(real_env, simulator, epsilon, constraint)
-        self.simulator = simulator
-        n_obs = real_env.observation_space.shape[0]
-        n_ac = real_env.action_space.shape[0]
-        L_theta = self.simulator.op_norm_der_A * np.sqrt(n_obs) * real_env.max_s + self.simulator.op_norm_der_B * np.sqrt(n_ac) * real_env.max_a
-        self.sim_threshold = self.constraint.l - epsilon * constraint.L_c * L_theta
+
+    def set_simulator_threshold(self, L_theta):
+        self.sim_threshold = self.constraint.l - self.epsilon * self.constraint.L_c * L_theta
 
     def run(self, n_iter, gamma, alpha, sigma, H=1000):
         """
@@ -193,3 +190,37 @@ class CACLA_Bounded_LQR_SE_agent(CACLA_LQR_SE_agent):
                 print(f"Iteration {i}/{n_iter}: reward: {reward}")
 
         return np.array(states), np.array(actions), np.array(rewards)
+
+
+class CACLA_Bounded_LQR_SE_agent(CACLA_LQR_SE_fix):
+    """
+    Implementation of CACLA using Safe Exploration for solving LQR, with assumption of bounded state and/or action spaces.
+    The simulator threshold is fixed during all the training.
+    """
+
+    def __init__(self, real_env: BoundedEasyLinearQuadReg, simulator: BoundedEasyLinearQuadReg, epsilon, constraint):
+        """
+        Constructor.
+        :param real_env: BoundedEasyLinearQuadReg, representing the real world environment, with unknown real world parameter
+        :param simulator: BoundedEasyLinearQuadReg, representing the simulator environmnet, with estimated real world parameter
+        :param epsilon: approximation error
+        :param constraint: Constraint
+        """
+        super().__init__(real_env, simulator, epsilon, constraint)
+        self.simulator = simulator
+        n_obs = real_env.observation_space.shape[0]
+        n_ac = real_env.action_space.shape[0]
+        L_theta = self.simulator.op_norm_der_A * np.sqrt(n_obs) * real_env.max_s + self.simulator.op_norm_der_B * np.sqrt(n_ac) * real_env.max_a
+        self.set_simulator_threshold(L_theta)
+
+
+class CACLA_AffineQR_SE_agent(CACLA_LQR_SE_fix):
+    """
+    Implementation of CACLA using Safe Exploration for solving Affine Quadratic Regulator, without assumption of bounded state and action spaces.
+    The simulator threshold is fixed during all the training.
+    """
+
+    def __init__(self, real_env: EasyAffineQuadReg, sim_env: EasyAffineQuadReg, epsilon, constraint):
+        super(CACLA_AffineQR_SE_agent, self).__init__(real_env, sim_env, epsilon, constraint)
+        L_theta = np.linalg.norm(np.array([0.1, 0]))
+        self.set_simulator_threshold(L_theta)
