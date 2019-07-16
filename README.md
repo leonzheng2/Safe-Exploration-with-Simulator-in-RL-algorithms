@@ -1,15 +1,32 @@
-# Swimmer Task: OpenAI Gym implementation
-Contained in `src/openai/`.
+# Research Internship at FLL (April - August 2019)
 
 ## Requirements
-Install OpenAI Gym in Python 3. MuJoCo is needed if we want to use [Swimmer-v2 environment](https://gym.openai.com/envs/Swimmer-v2/) for comparison purpose.
 
-## Using LeonSwimmer environment
-In order to use Remy's implementation of Swimmer task written with OpenAI Gym environment interface, please follow steps in `gym-swimmer/` folder.
+Installation of the followings are required:
+- Python 3.6
+- OpenAI Gym
+- MuJoCo
+- PyTorch
+- Ray
+- Eigen
 
-This is necessary if we want to use other implementation of RL algorithms which are compatible with OpenAI Gym framework, such as [OpenAI baselines algorithms](https://github.com/openai/baselines).
+## Swimmer task implementation
 
-Otherwise, we can just import the Environment class to have easy manipulation of parameters.
+The implementation of Swimmer task based on [Remi Coulom's work](https://www.remi-coulom.fr/Publications/Thesis.pdf) is 
+implemented in `envs/gym_swimmer/` using OpenAI Gym framework.
 
-## Runing an experiment
-Run `python src/openai/plot.py` to run an ARS training on the LeonSwimmer environment, and obtain the learning curve over several seeds.
+For the [RL-Glue](http://www.jmlr.org/papers/volume10/tanner09a/tanner09a.pdf) version of the Swimmer task, see the directory `rlglue/`.
+
+## Safe Exploration for long rollouts algorithms (ARS)
+
+First version of Safe Exploration with _reward constraint_ can be found in the directory `ars/`.
+
+It focuses on the use of [ARS algorithm](https://arxiv.org/pdf/1803.07055.pdf) for solving Swimmer task, with and withour Safe Exploration.
+
+This work helped to stress out the difficulty of using Safe Exploration for long rollouts algorithms.
+
+## Safe Exploration for short rollouts algorithms (CACLA)
+
+Second version of Safe Exploration with _state constraint_ can be found in the directory `cacla/`.
+
+Here, we use easy parameterized instances of Linear Quadratic Regulator to show the validity of the Safe Exploration algorithm.
