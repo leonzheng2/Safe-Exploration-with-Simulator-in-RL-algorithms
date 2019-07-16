@@ -1,3 +1,16 @@
+"""
+Script for running CACLA training on Swimmer task, Coulom's version.
+
+Hyperparameters tunning. Outputs the learning curve for agents with different parameters.
+
+Choose the CACLA agent parameters:
+    - discount factor `gammas`
+    - standard deviation for Gaussian policy `sigmas`
+    - step size for weights update `alphas`
+    - number of iterations `n_iter`
+"""
+
+
 from gym.envs.swimmer.remy_swimmer_env import SwimmerEnv
 from cacla.cacla_agent import CACLA_agent
 import matplotlib.pyplot as plt
@@ -6,7 +19,7 @@ import ray
 
 
 @ray.remote
-def experience(env, gamma, alpha, sigma, n_iter, H):
+def experience(env, gamma, alpha, sigma, n_iter, H=1000):
     # Train the agent
     rewards = []
     for seed in range(3):
@@ -37,7 +50,8 @@ if __name__ == '__main__':
     gammas = np.linspace(0.1, 0.95, 10)
     alphas = [0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001, 0.00003]
     sigmas = [1, 0.1, 0.001, 0.0001]
+    n_iter = 10000
     tasks = []
     for g, a, s in [(g, a, s) for g in gammas for a in alphas for s in sigmas]:
-        tasks.append(experience.remote(env, g, a, s))
+        tasks.append(experience.remote(env, g, a, s, n_iter))
     ray.get(tasks)

@@ -1,11 +1,31 @@
+"""
+Solving LQR with CACLA, without Safe Exploration.
+
+Choose instances of LQR to solve.
+
+Choose hyperparameters of CACLA:
+    - discount factor `gamma`
+    - standard deviation for Gaussian policy `sigma`
+    - step size for weights update `alpha`
+    - number of iterations `n_iter`
+
+Here is an example of hyperparameter tuning. The results is plotted in a graph.
+"""
+
+
 from envs.gym_lqr.lqr_env import LinearQuadReg
 import numpy as np
-import sklearn.datasets
 from cacla.cacla_agent import CACLA_LQR_agent
 import matplotlib.pyplot as plt
 import queue
 
 def window_convolution(a, H):
+    """
+    Helper method to average the last H values.
+    :param a: array, size n
+    :param H: integer
+    :return: array, size n-H
+    """
     v = []
     sum_H = 0
     q = queue.Queue(H)
@@ -20,8 +40,7 @@ def window_convolution(a, H):
             sum_H += a[i]
     return np.array(v)/H
 
-'''Easy instances of LQR to solve'''
-
+''' Easy instances of LQR to solve '''
 # Environment
 # Instance 1
 A_1 = np.ones((1,1))
@@ -37,6 +56,7 @@ Q_2 = np.array([[1, 0], [0, 1]])
 R_2 = np.array([[1]])
 lqr_2 = LinearQuadReg(A_2, B_2, Q_2, R_2)
 
+''' CACLA agent for solving easy instances of LQR '''
 # Grid search
 optimal_F = np.array([[1-np.sqrt(3), 0]])
 n_iter = 200000
@@ -45,8 +65,8 @@ sigma = 0.1
 alphas = [0.1, 0.03, 0.01, 0.003, 0.001, 0.0003, 0.0001, 0.00003, 0.00001]
 distance = []
 
+''' Hyperparameter tuning '''
 for alpha in alphas:
-
     # Agent
     agent = CACLA_LQR_agent(lqr_2)
     _, _, results = agent.run(n_iter, gamma, alpha, sigma)
@@ -65,6 +85,7 @@ for alpha in alphas:
     # plt.show()
     plt.close()
 
+''' Graph plotting '''
 plt.semilogx(alphas, distance)
 plt.xlabel("Backpropagation step size")
 plt.ylabel("||F - optimal_F||_2")

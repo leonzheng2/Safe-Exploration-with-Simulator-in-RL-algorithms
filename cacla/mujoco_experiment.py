@@ -1,25 +1,33 @@
+"""
+Script for training CACLA agent on OpenAI Gym MuJoCo task without Safe Exploration.
+
+Select the environment `env`.
+
+Choose hyperparameters of CACLA:
+    - discount factor `gamma`
+    - standard deviation for Gaussian policy `sigma`
+    - step size for weights update `alpha`
+    - number of iterations `n_iter`
+"""
+
+
 import gym
 from cacla.cacla_agent import CACLA_agent
 import matplotlib.pyplot as plt
 import numpy as np
-import queue
-
-def window_convolution(a, H):
-    v = []
-    sum_H = 0
-    q = queue.Queue(H)
-    for i in range(len(a)):
-        if q.full():
-            sum_H -= q.get()
-            q.put(a[i])
-            sum_H += a[i]
-            v.append(sum_H)
-        else:
-            q.put(a[i])
-            sum_H += a[i]
-    return np.array(v)
+from cacla.lqr_experiment import window_convolution
 
 def experience(env, gamma, alpha, sigma, n_iter, H):
+    """
+    Helper method wrapping one experience, containing training of the CACLA agent to solve a given MuJoCo environment
+    :param env: OpenAI Gym environment, MuJoCo. For example, use `Swimmer-v2`
+    :param gamma: discount factor [0,1]
+    :param alpha: step size, float
+    :param sigma: std deviation of Gaussian policy, step size
+    :param n_iter: number of iterations, integer
+    :param H: print training progress at each timestep H
+    :return: void
+    """
     # Train the agent
     rewards = []
     for seed in range(3):
@@ -47,13 +55,17 @@ def experience(env, gamma, alpha, sigma, n_iter, H):
     plt.savefig(f"results/cacla/mujoco/gamma={round(gamma, 3)}_alpha={alpha}_sigma={sigma}.png")
     plt.close()
 
-# Initialization
+''' Experience '''
+
+# Initialization of the environment
 env = gym.make('Swimmer-v2')
 
-# Train
+# CACLA agent parameters
 gammas = [0.0, 0.8, 0.9, 0.95, 0.99]
 alpha = 0.01
 sigma = 0.1
 gamma = gammas[1]
+n_iter = 100000
 
-experience(env, gamma, alpha, sigma, 100000, 1000)
+# Training the agent
+experience(env, gamma, alpha, sigma, n_iter, 1000)

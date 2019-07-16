@@ -1,35 +1,44 @@
+"""
+Script for showing the validity of Safe Exploration on CACLA solving easy parameterized LQR.
+
+Choose the unknown real world environment parameters:
+    - `theta_real`: float, smaller than 1.0
+
+Choose the estimated real world environment parameters:
+    - `theta_sim`: float, smaller than 1.0
+
+Choose the CACLA agent parameters:
+    - discount factor `gamma`
+    - standard deviation for Gaussian policy `sigma`
+    - step size for weights update `alpha`
+    - number of iterations `n_iter`
+
+Choose the safety state constraints which has to be satisfied by the real world agent:
+    - cost function `cost`
+    - Lipschitz constant of cost function `L_c`
+    - threshold `l`
+
+Choose the path and the names for saving the figures.
+"""
+
+
 import numpy as np
 import matplotlib.pyplot as plt
-import queue
 from envs.gym_lqr.lqr_env import EasyParamLinearQuadReg, BoundedEasyLinearQuadReg
 from cacla.cacla_agent import CACLA_LQR_agent
 from cacla.cacla_safe_agent import Constraint, CACLA_LQR_SE_agent, CACLA_Bounded_LQR_SE_agent
+from cacla.lqr_experiment import window_convolution
 
-
-def window_convolution(a, H):
-    v = []
-    sum_H = 0
-    q = queue.Queue(H)
-    for i in range(len(a)):
-        if q.full():
-            sum_H -= q.get()
-            q.put(a[i])
-            sum_H += a[i]
-            v.append(sum_H)
-        else:
-            q.put(a[i])
-            sum_H += a[i]
-    return np.array(v)/H
-
-seed = np.random.randint(2**32)
+### Random seeds
+seed = 8943948
 
 ### LQR Real World
 theta_real = 1.0
-lqr_real = BoundedEasyLinearQuadReg(theta_real, max_s=2, max_a=1)
+lqr_real = EasyParamLinearQuadReg(theta_real)
 
 ### LQR Simulator
 theta_sim = 0.99
-lqr_sim = BoundedEasyLinearQuadReg(theta_sim, max_s=2, max_a=1)
+lqr_sim = EasyParamLinearQuadReg(theta_sim)
 
 ### Agent
 n_iter = 200000
@@ -50,9 +59,15 @@ cost = lambda x: np.linalg.norm(x, 1)
 L_c = 2
 l = 1
 constraint = Constraint(cost, l, L_c)
-safe_agent = CACLA_Bounded_LQR_SE_agent(lqr_real, lqr_sim, epsilon, constraint)
+safe_agent = CACLA_LQR_SE_agent(lqr_real, lqr_sim, epsilon, constraint)
 states_2, actions_2, rewards_2 = safe_agent.run(n_iter, gamma, alpha, sigma)
 print(safe_agent.F)
+
+### Policy
+opt_F = np.array([1-np.sqrt(3), 0])
+print(f"Optimal: {opt_F}")
+print(f"CACLA without Safe Exploration: {agent.F}; distance = {np.linalg.norm(agent.F - opt_F, 2)}")
+print(f"CACLA with Safe Exploration: {safe_agent.F}; distance = {np.linalg.norm(safe_agent.F - opt_F, 2)}")
 
 ### Results - Comparison
 
@@ -94,9 +109,9 @@ ax[2,0].set_title(f"Average rewards, without Safe Exploration")
 ax[2,1].plot(t[n_iter - len(rewards_2):], window_convolution(rewards_2, H))
 ax[2,1].set_xlabel("Timesteps")
 ax[2,1].set_ylabel(f"Average of the last {H} rewards")
-ax[2,1].set_title(f"Average rewards, without Safe Exploration")
+ax[2,1].set_title(f"Average rewards, with Safe Exploration")
 
 plt.suptitle(f"Easy parameterized LQR (theta_real={theta_real}, theta_sim={theta_sim})\nCACLA (gamma={round(gamma, 3)}, alpha={alpha}, sigma={sigma})")
-plt.savefig(f"results/cacla/Safe_LQR/1_bounded_theta_real={theta_real}_theta_sim={theta_sim}_gamma={round(gamma, 3)}_alpha={alpha}_sigma={sigma}_rewards.png")
+plt.savefig(f"results/cacla/Safe_LQR/2_theta_real={theta_real}_theta_sim={theta_sim}_gamma={round(gamma, 3)}_alpha={alpha}_sigma={sigma}_rewards.png")
 # plt.show()
 plt.close()
