@@ -1,11 +1,18 @@
 """
 Script for showing the validity of Safe Exploration on CACLA solving easy parameterized LQR.
 
-Choose the unknown real world environment parameters:
-    - `theta_real`: float, smaller than 1.0
+Choose the random seed:
+    - `seed` is either a given integer or `numpy.random.randint(2**32)`
 
-Choose the estimated real world environment parameters:
-    - `theta_sim`: float, smaller than 1.0
+Choose the class for the environments `lqr_real` and `lqr_sim`:
+    - `EasyParamLinearQuadReg`
+    - `BoundedEasyLinearQuadReg`
+    - or `BoundedActionEasyLinearQuadReg`
+    - and the environment parameters: `theta_real` for the unknown real world parameter, and `theta_sim` for the estimated real world parameter
+
+Choose the correspondant CACLA agent for `safe_agent`:
+    - when environments are `EasyParamLinearQuadReg`, use `CACLA_LQR_SE_agent`
+    - when environments are `BoundedEasyLinearQuadReg` or `BoundedActionEasyLinearQuadReg`, use `CACLA_Bounded_LQR_SE_agent`
 
 Choose the CACLA agent parameters:
     - discount factor `gamma`
@@ -20,25 +27,26 @@ Choose the safety state constraints which has to be satisfied by the real world 
 
 Choose the path and the names for saving the figures.
 """
-
+print("Starting experience of Safe Exploration with CACLA on LQR")
 
 import numpy as np
 import matplotlib.pyplot as plt
-from envs.gym_lqr.lqr_env import EasyParamLinearQuadReg, BoundedEasyLinearQuadReg
+from envs.gym_lqr.lqr_env import EasyParamLinearQuadReg, BoundedEasyLinearQuadReg, BoundedActionEasyLinearQuadReg
 from cacla.cacla_agent import CACLA_LQR_agent
 from cacla.cacla_safe_agent import Constraint, CACLA_LQR_SE_agent, CACLA_Bounded_LQR_SE_agent
-from cacla.lqr_experiment import window_convolution
+from cacla.window import window_convolution
 
 ### Random seeds
 seed = 8943948
+# seed = np.random.randint(2**32)
 
 ### LQR Real World
 theta_real = 1.0
-lqr_real = EasyParamLinearQuadReg(theta_real)
+lqr_real = BoundedEasyLinearQuadReg(theta_real, 3, 1)
 
 ### LQR Simulator
 theta_sim = 0.99
-lqr_sim = EasyParamLinearQuadReg(theta_sim)
+lqr_sim = BoundedEasyLinearQuadReg(theta_sim, 3, 1)
 
 ### Agent
 n_iter = 200000
@@ -55,11 +63,11 @@ print(agent.F)
 # CACLA with Safe Exploration
 np.random.seed(seed)
 epsilon = abs(theta_real - theta_sim)
-cost = lambda x: np.linalg.norm(x, 1)
-L_c = 2
-l = 1
+cost = lambda x: np.linalg.norm(x, np.inf)
+L_c = 1
+l = 2
 constraint = Constraint(cost, l, L_c)
-safe_agent = CACLA_LQR_SE_agent(lqr_real, lqr_sim, epsilon, constraint)
+safe_agent = CACLA_Bounded_LQR_SE_agent(lqr_real, lqr_sim, epsilon, constraint)
 states_2, actions_2, rewards_2 = safe_agent.run(n_iter, gamma, alpha, sigma)
 print(safe_agent.F)
 
@@ -112,6 +120,6 @@ ax[2,1].set_ylabel(f"Average of the last {H} rewards")
 ax[2,1].set_title(f"Average rewards, with Safe Exploration")
 
 plt.suptitle(f"Easy parameterized LQR (theta_real={theta_real}, theta_sim={theta_sim})\nCACLA (gamma={round(gamma, 3)}, alpha={alpha}, sigma={sigma})")
-plt.savefig(f"results/cacla/Safe_LQR/2_theta_real={theta_real}_theta_sim={theta_sim}_gamma={round(gamma, 3)}_alpha={alpha}_sigma={sigma}_rewards.png")
+plt.savefig(f"results/cacla/Safe_LQR/Problem-A/1_bounded_theta_real={theta_real}_theta_sim={theta_sim}_gamma={round(gamma, 3)}_alpha={alpha}_sigma={sigma}_rewards.png")
 # plt.show()
 plt.close()

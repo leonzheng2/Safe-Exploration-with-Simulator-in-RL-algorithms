@@ -15,7 +15,7 @@ import gym
 from cacla.cacla_agent import CACLA_agent
 import matplotlib.pyplot as plt
 import numpy as np
-from cacla.lqr_experiment import window_convolution
+from cacla.window import window_convolution
 
 def experience(env, gamma, alpha, sigma, n_iter, H):
     """

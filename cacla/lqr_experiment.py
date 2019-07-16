@@ -17,28 +17,8 @@ from envs.gym_lqr.lqr_env import LinearQuadReg
 import numpy as np
 from cacla.cacla_agent import CACLA_LQR_agent
 import matplotlib.pyplot as plt
-import queue
+from cacla.window import window_convolution
 
-def window_convolution(a, H):
-    """
-    Helper method to average the last H values.
-    :param a: array, size n
-    :param H: integer
-    :return: array, size n-H
-    """
-    v = []
-    sum_H = 0
-    q = queue.Queue(H)
-    for i in range(len(a)):
-        if q.full():
-            sum_H -= q.get()
-            q.put(a[i])
-            sum_H += a[i]
-            v.append(sum_H)
-        else:
-            q.put(a[i])
-            sum_H += a[i]
-    return np.array(v)/H
 
 ''' Easy instances of LQR to solve '''
 # Environment
