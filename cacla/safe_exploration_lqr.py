@@ -42,11 +42,11 @@ seed = 8943948
 
 ### LQR Real World
 theta_real = 1.0
-lqr_real = EasyParamLinearQuadReg(theta_real)
+lqr_real = BoundedActionEasyLinearQuadReg(theta_real, 1)
 
 ### LQR Simulator
 theta_sim = 0.99
-lqr_sim = EasyParamLinearQuadReg(theta_sim)
+lqr_sim = BoundedActionEasyLinearQuadReg(theta_sim, 1)
 
 ### Agent
 n_iter = 200000
@@ -65,9 +65,9 @@ np.random.seed(seed)
 epsilon = abs(theta_real - theta_sim)
 cost = lambda x: np.linalg.norm(x, np.inf)
 L_c = 1
-l = 2
+l = 3
 constraint = Constraint(cost, l, L_c)
-safe_agent = CACLA_LQR_SE_agent(lqr_real, lqr_sim, epsilon, constraint)
+safe_agent = CACLA_Bounded_LQR_SE_agent(lqr_real, lqr_sim, epsilon, constraint)
 states_2, actions_2, rewards_2 = safe_agent.run(n_iter, gamma, alpha, sigma)
 print(safe_agent.F)
 
@@ -120,6 +120,6 @@ ax[2,1].set_ylabel(f"Average of the last {H} rewards")
 ax[2,1].set_title(f"Average rewards, with Safe Exploration")
 
 plt.suptitle(f"Easy parameterized LQR (theta_real={theta_real}, theta_sim={theta_sim})\nCACLA (gamma={round(gamma, 3)}, alpha={alpha}, sigma={sigma})")
-plt.savefig(f"results/cacla/Safe_LQR/Problem-A/1_theta_real={theta_real}_theta_sim={theta_sim}_gamma={round(gamma, 3)}_alpha={alpha}_sigma={sigma}_rewards.png")
+plt.savefig(f"results/cacla/Safe_LQR/Problem-B/1_theta_real={theta_real}_theta_sim={theta_sim}_gamma={round(gamma, 3)}_alpha={alpha}_sigma={sigma}_rewards.png")
 # plt.show()
 plt.close()
