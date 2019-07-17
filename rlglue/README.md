@@ -10,6 +10,10 @@ RLGlue is defines a protocol for reinforcement learning experiments.
 
 ## Requirements
 
+### Eigen
+
+Add the [Eigen](http://eigen.tuxfamily.org/index.php?title=Main_Page) C++ library in this directory. 
+
 ### RLGlue
 Download https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/rl-glue-ext/rlglue-3.04.tar.gz and follow instructions.
 
