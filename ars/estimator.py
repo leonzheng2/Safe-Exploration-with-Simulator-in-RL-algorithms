@@ -126,7 +126,7 @@ if __name__ == '__main__':
                          m_i=1.01,
                          l_i=1.01, h=0.001, k=10.01, epsilon=0.01)
   database = Database()
-  database.load("src/ars/real_world.npz")
+  database.load("ars/real_world.npz")
   estimator = Estimator(database, guess_param, capacity=1)
 
   print("Counting time to compute objective function evaluated at real world param...")

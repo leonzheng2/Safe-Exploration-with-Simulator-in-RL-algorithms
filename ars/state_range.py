@@ -1,3 +1,11 @@
+"""
+Script for obtaining the range of visited states for a training of the Swimmer task.
+
+Choose Swimmer environment parameters `env_param`.
+Choose ARS algorithm parameters in `ars_param`.
+"""
+
+
 import ray
 from ars.parameters import EnvParam, ARSParam
 from ars.experiment import Experiment
@@ -9,11 +17,11 @@ ray.init()
 # Train a good policy
 env_param = EnvParam("LeonSwimmer", n=3, H=1000, l_i=1., m_i=1., h=1e-3, k=10., epsilon=0)
 ars_param = ARSParam("ARS", V1=True, n_iter=300, H=1000, N=1, b=1, alpha=0.01, nu=0.01, safe=False, threshold=0, initial_w='Zero')
-exp = Experiment(env_param, save_policy_path="src/ars/data/saved_good_policy")
+exp = Experiment(env_param, save_policy_path="ars/data/saved_good_policy")
 exp.plot(1, ars_param, plot_mean=False)
 
 # Get the trained policy
-policy = np.load("src/ars/data/saved_good_policy.npy")
+policy = np.load("ars/data/saved_good_policy.npy")
 
 # Do a rollout with the good policy
 print("\nDoing a rollout with good policy...")

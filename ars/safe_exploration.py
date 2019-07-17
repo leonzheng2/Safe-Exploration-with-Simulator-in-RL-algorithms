@@ -30,8 +30,8 @@ hand_agent = ARSParam('HandControl', V1=True, n_iter=200, H=1000, N=1, b=1,
                       initial_w='Zero')
 hand_exp = Experiment(real_env_param,
                       data_path=None,
-                      save_data_path="src/ars/data/real_world_2.npz",
-                      save_policy_path='src/ars/data/saved_hand_policy',
+                      save_data_path="ars/data/real_world_2.npz",
+                      save_policy_path='ars/data/saved_hand_policy',
                       guess_param=None)
 returns = hand_exp.plot(n_seed=1, agent_param=hand_agent)
 
@@ -39,7 +39,7 @@ returns = hand_exp.plot(n_seed=1, agent_param=hand_agent)
 mean_returns = np.mean(returns, axis=0)
 l = mean_returns[-1] * 0.99
 print(f"\nSafety threshold: {l}")
-np.savetxt("src/ars/data/threshold.txt", np.array([l]))
+np.savetxt("ars/data/threshold.txt", np.array([l]))
 
 # l = 285
 
@@ -68,9 +68,9 @@ for A in [0.1, 0.3, 0.5, 0.7]:
     real_agent = ARSParam(f'RLControl', V1=True, n_iter=400,
                           H=H, N=1, b=1,
                           alpha=0.0075, nu=0.01, safe=True, threshold=l,
-                          initial_w='src/ars/data/saved_hand_policy.npy')
+                          initial_w='ars/data/saved_hand_policy.npy')
     real_exp = Experiment(real_env_param,
-                          data_path="src/ars/data/real_world_2.npz",
+                          data_path="ars/data/real_world_2.npz",
                           save_data_path=None,
                           save_policy_path=None,
                           guess_param=None,
