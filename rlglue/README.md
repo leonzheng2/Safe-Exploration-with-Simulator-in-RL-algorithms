@@ -64,13 +64,30 @@ Please change the parameters in `parameters.txt`. We can use for examples the fo
 - `k = 10.`: viscosity coefficient
 - `m_i = 1.`: mass of one Swimmer segment
 
-## Build and run
+## Reinforcement learning experiments
+
+### Build the project
 Run `make` in this directory to build.
 
-Then, in this directory, run the following command lines for training an ARS agent to learn Swimmer task:
+### Run experience
+
+Then, in four different, run the following command lines for training an ARS agent to learn Swimmer task:
 ```bash
+# Terminal 1: RLGlue core
 rl_glue
-./environment/SwimmerEnvironment
-python agent/SwimmerAgent.py
-./experiment/SwimmerExperiment 100000
+
+# Terminal 2: RLGlue environment
+cd environment/ && ./SwimmerEnvironment
+
+# Terminal 3: RLGlue agent
+cd agent/ && python SwimmerAgent.py
+
+# Terminal 4: RLGlue experiment
+cd experiment/ && ./SwimmerExperiment 100000
 ```
+
+Results of the experience is written in `plot/results.txt`.
+
+### Ploting the results
+
+To obtain the learning curve of the training, run the script `plot/show_results.py`.

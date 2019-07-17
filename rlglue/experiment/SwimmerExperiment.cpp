@@ -101,7 +101,7 @@ void run_training()
 
 int main(int argc, char *argv[])
 {
-	results.open("../../results/rlglue/results.txt");
+	results.open("../plot/results.txt");
 	std::cout << "\nExperiment starting up!\n" << std::endl;
 	if(argc > 1){
 		n_it = std::stoi(argv[1]);
