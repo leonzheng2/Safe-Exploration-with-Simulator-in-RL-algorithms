@@ -32,3 +32,7 @@ Otherwise, we can just import the Environment class to have easy manipulation of
 * `safe_exploration.py`: Safe Exploration with ARS and constraint on rollout returns
 * `state_range.py`: obtain the range of visited states
 * `comparison_mujoco.py`: transfering the policy learned in LeonSwimmer to MuJoCo Swimmer
+
+## Runing experiments
+
+Run the scripts described above after choosing the parameters to make experiments and obtain results.
