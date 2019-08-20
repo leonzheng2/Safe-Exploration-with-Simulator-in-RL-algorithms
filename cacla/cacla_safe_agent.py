@@ -179,6 +179,7 @@ class CACLA_LQR_SE_fix(CACLA_LQR_SE_agent):
                 rewards.append(reward)
                 state = new_state
             else:
+                # print(f"Cost in simulation is higher than simulator threshold: {sim_constraint.cost(sim_state)}")
                 if len(states) > 0:
                     states.append(states[-1])
                 if len(actions) > 0:
@@ -188,6 +189,7 @@ class CACLA_LQR_SE_fix(CACLA_LQR_SE_agent):
 
             if i%H == 0 and i > 0 and len(rewards) > 0:
                 print(f"Iteration {i}/{n_iter}: reward: {reward}")
+                # print(f"Value function: {self.V}")
 
         return np.array(states), np.array(actions), np.array(rewards)
 

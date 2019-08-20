@@ -292,5 +292,6 @@ class CACLA_LQR_agent:
             #     break
             if i%H == 0 and i > 0:
                 print(f"Iteration {i}/{n_iter}: reward: {reward}")
+                # print(f"Value function: {self.V}")
 
         return np.array(states), np.array(actions), np.array(rewards)

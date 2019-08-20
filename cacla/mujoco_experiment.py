@@ -32,7 +32,7 @@ def experience(env, gamma, alpha, sigma, n_iter, H):
     rewards = []
     for seed in range(3):
         agent = CACLA_agent(gamma=gamma, alpha=alpha, sigma=sigma)
-        rewards.append(agent.run(env, n_iter, H=H, train=True, render=False))
+        rewards.append(agent.run(env, n_iter, H=H, train=True, render=True))
 
     # Window convolve
     for i in range(len(rewards)):
