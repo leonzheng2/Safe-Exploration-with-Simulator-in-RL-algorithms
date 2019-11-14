@@ -2,6 +2,8 @@
 
 Work by Léon Zheng (Ecole polytechnique, FLL) under the supervision of Iwane Hidenao (FLL).
 
+The abstract of the work is given in the file ``AI_AdVC_Internship_Report_short.pdf``.
+
 ## Requirements
 
 Installation of the followings are required:
